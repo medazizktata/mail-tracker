@@ -7,6 +7,7 @@
   let serverUrl = '';
   let dashboardPassword = '';
   let trackingEnabled = true;
+  let trackLinks = false; // opt-in: rewriting links changes what recipients see, see the popup
   let learnedSends = []; // Send buttons learned from this user's Gmail, see send-signatures.js
 
   // Add CSS for read indicators
@@ -71,8 +72,9 @@
   }
 
   // Load settings
-  chrome.storage.sync.get(['serverUrl', 'autoTrack'], (result) => {
+  chrome.storage.sync.get(['serverUrl', 'autoTrack', 'trackLinks'], (result) => {
     serverUrl = result.serverUrl || '';
+    trackLinks = result.trackLinks === true;
     trackingEnabled = result.autoTrack !== false;
     console.log(LOG, 'Loaded settings:', { serverUrl: serverUrl ? 'set' : 'empty', trackingEnabled });
   });
@@ -88,6 +90,7 @@
     if (changes.dashboardPassword) dashboardPassword = changes.dashboardPassword.newValue || '';
     if (changes.sendSignatures) learnedSends = changes.sendSignatures.newValue || [];
     if (changes.autoTrack) trackingEnabled = changes.autoTrack.newValue !== false;
+    if (changes.trackLinks) trackLinks = changes.trackLinks.newValue === true;
   });
 
   // Extract email addresses from a compose form
@@ -194,6 +197,10 @@
     const headers = { 'Content-Type': 'application/json' };
     if (dashboardPassword) headers['Authorization'] = 'Basic ' + btoa(':' + dashboardPassword);
 
+    // Links the user wrote, not earlier messages quoted below them.
+    const ownLinks = () => Array.from(contentArea.querySelectorAll('a[href]')).filter(a => !a.closest('.gmail_quote'));
+    const links = trackLinks ? MailTrackerLogic.collectLinks(ownLinks().map(a => a.href), new URL(serverUrl).host) : [];
+
     let res;
     try {
       res = await fetch(`${serverUrl}/new`, {
@@ -204,6 +211,7 @@
           subject: emailContent.subject,
           bodyPreview: emailContent.bodyPreview,
           messageId: Date.now() + '-' + Math.random().toString(36).slice(2, 11),
+          links,
         }),
         signal: AbortSignal.timeout(NEW_PIXEL_TIMEOUT_MS),
       });
@@ -221,6 +229,16 @@
     // The id only: an address in the sent HTML would be readable by every recipient.
     img.setAttribute('data-mail-tracker', data.id);
     contentArea.appendChild(img);
+
+    // Point each link at its tracked address; the worker redirects to the original.
+    if (links.length && Array.isArray(data.links)) {
+      const tracked = new Map(data.links.map(l => [l.url, l.tracked]));
+      for (const a of ownLinks()) {
+        let key;
+        try { key = new URL(a.href).href; } catch { continue; }
+        if (tracked.has(key)) a.href = tracked.get(key);
+      }
+    }
     console.log(LOG, 'Injected tracker', data.id, 'for', recipients.length, 'recipient(s)');
   }
 
@@ -277,7 +295,8 @@
     const recipients = getRecipients(form);
     if (recipients.length === 0) return;
 
-    if (bodyEl.querySelector('img[data-mail-tracker]')) return; // already tracked
+    const srcs = Array.from(bodyEl.querySelectorAll('img')).map(i => i.getAttribute('src') || i.src);
+    if (MailTrackerLogic.hasPixel(srcs, serverUrl)) return; // already tracked (Gmail strips our data attribute)
 
     await injectTracker(bodyEl, recipients);
   }

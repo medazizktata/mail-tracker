@@ -293,5 +293,14 @@
   },
   "reasonNoHtmlBody": {
     "message": "aucun corps HTML trouvé, le mode texte brut de Gmail est-il activé ?"
+  },
+  "statClicks": {
+    "message": "Clics"
+  },
+  "trackLinksLabel": {
+    "message": "Suivre les clics sur les liens"
+  },
+  "trackLinksHint": {
+    "message": "Réécrit les liens des messages envoyés pour compter les clics même quand les images sont bloquées. Les destinataires verront l'adresse de votre worker en survolant un lien. Désactivé par défaut."
   }
 }

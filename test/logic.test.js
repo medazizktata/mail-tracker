@@ -121,3 +121,68 @@ describe('pixelBlocker: why a message cannot carry a pixel', () => {
     assert.equal(pixelBlocker({ bodyCount: 2, bodyTag: 'DIV' }), null);
   });
 });
+
+describe('collectLinks: which links in a message to track', () => {
+  const { collectLinks } = globalThis.MailTrackerLogic;
+  const HOST = 'mt.example.workers.dev';
+
+  test('http and https, deduplicated and normalised, in order', () => {
+    assert.deepEqual(collectLinks(['https://a.example', 'http://b.example/x', 'https://a.example/'], HOST), ['https://a.example/', 'http://b.example/x']);
+  });
+  test('never mailto, tel, javascript, anchors or relative links', () => {
+    assert.deepEqual(collectLinks(['mailto:a@b.co', 'tel:123', 'javascript:alert(1)', '#top', '/relative', 'ftp://x.example/'], HOST), []);
+  });
+  test('never our own worker: not the pixel, not a link already tracked', () => {
+    assert.deepEqual(collectLinks([`https://${HOST}/t/abcdef0123456789`, `https://${HOST}/c/abcdef0123456789/0`, 'https://ok.example/'], HOST), ['https://ok.example/']);
+  });
+  test('a lookalike host is not our worker', () => {
+    assert.deepEqual(collectLinks([`https://x${HOST}/page`], HOST), [`https://x${HOST}/page`]);
+  });
+  test('credentials and over-long links are skipped', () => {
+    assert.deepEqual(collectLinks(['https://u:p@a.example/', `https://a.example/${'x'.repeat(2100)}`], HOST), []);
+  });
+  test('capped', () => {
+    const many = Array.from({ length: 30 }, (_, i) => `https://a.example/${i}`);
+    assert.equal(collectLinks(many, HOST).length, 20);
+  });
+  test('empty and garbage input', () => {
+    assert.deepEqual(collectLinks([], HOST), []);
+    assert.deepEqual(collectLinks([null, undefined, '', 5], HOST), []);
+  });
+});
+
+describe('hasPixel: does a message body already carry our pixel', () => {
+  const { hasPixel } = globalThis.MailTrackerLogic;
+  const SERVER = 'https://mt.example.workers.dev';
+  const ID = 'd964b11de5f14520';
+
+  test('a direct pixel URL', () => {
+    assert.equal(hasPixel([`${SERVER}/t/${ID}`], SERVER), true);
+  });
+  test('the same pixel behind Gmail\'s image proxy, with the real URL after the #', () => {
+    assert.equal(hasPixel([`https://ci3.googleusercontent.com/meips/AAA#${SERVER}/t/${ID}`], SERVER), true);
+  });
+  test('other images, other paths and other hosts are not our pixel', () => {
+    for (const src of ['https://example.com/logo.png', `${SERVER}/s/${ID}`, `${SERVER}/t/`, `${SERVER}/t/not-hex-id!`,
+                       `https://other.example/t/${ID}`, `https://xmt.example.workers.dev/t/${ID}`, '', null, undefined]) {
+      assert.equal(hasPixel([src], SERVER), false, String(src));
+    }
+  });
+  test('the dots in a host are literal, and other regex characters are escaped', () => {
+    assert.equal(hasPixel([`https://mtXexampleXworkers.dev/t/${ID}`], 'https://mt.example.workers.dev'), false);
+    assert.equal(hasPixel([`https://a+b.example/t/${ID}`], 'https://a+b.example'), true);
+    assert.equal(hasPixel([`https://aab.example/t/${ID}`], 'https://a+b.example'), false);
+  });
+  test('the id must end where the pixel URL ends: a non-hex tail is another URL', () => {
+    assert.equal(hasPixel([`${SERVER}/t/${ID}zz`], SERVER), false);
+    assert.equal(hasPixel([`${SERVER}/t/${ID}?cb=1`], SERVER), true);
+  });
+  test('found among several images', () => {
+    assert.equal(hasPixel(['https://example.com/a.png', `${SERVER}/t/${ID}`], SERVER), true);
+  });
+  test('no images, or an unusable server address', () => {
+    assert.equal(hasPixel([], SERVER), false);
+    assert.equal(hasPixel([`${SERVER}/t/${ID}`], 'not a url'), false);
+    assert.equal(hasPixel([`${SERVER}/t/${ID}`], ''), false);
+  });
+});

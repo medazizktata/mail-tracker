@@ -293,5 +293,14 @@
   },
   "reasonNoHtmlBody": {
     "message": "no HTML body found, is Gmail's plain-text mode on?"
+  },
+  "statClicks": {
+    "message": "Clicks"
+  },
+  "trackLinksLabel": {
+    "message": "Track link clicks"
+  },
+  "trackLinksHint": {
+    "message": "Rewrites the links in messages you send so clicks are counted even when images are blocked. Recipients will see your worker's address when they hover a link. Off by default."
   }
 }

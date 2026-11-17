@@ -47,5 +47,33 @@
     return null;
   }
 
-  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay, pixelBlocker };
+  // Links worth tracking in a message body: http and https only, normalised, deduplicated, never our own
+  // worker (the pixel, or a link that is already tracked), capped. The worker validates again.
+  const MAX_TRACKED_LINKS = 20;
+  const MAX_TRACKED_LINK_LENGTH = 2000;
+  function collectLinks(hrefs, workerHost) {
+    const out = [];
+    for (const raw of hrefs) {
+      let u;
+      try { u = new URL(raw); } catch { continue; }
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') continue;
+      if (u.host === workerHost || u.username || u.password) continue;
+      if (u.href.length > MAX_TRACKED_LINK_LENGTH) continue;
+      if (!out.includes(u.href)) out.push(u.href);
+      if (out.length === MAX_TRACKED_LINKS) break;
+    }
+    return out;
+  }
+
+  // Does a message body already carry our pixel? Matched on the image's address, because Gmail strips the
+  // data-* attribute we add (seen in the raw source of a sent mail). In a reopened draft the address may be
+  // behind Gmail's image proxy, with the real URL after a "#".
+  function hasPixel(srcs, serverUrl) {
+    let host;
+    try { host = new URL(serverUrl).host; } catch { return false; }
+    const re = new RegExp('https?://' + host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/t/[0-9a-f]{8,32}(?:$|[?#&/])');
+    return srcs.some(s => re.test(String(s || '')));
+  }
+
+  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay, pixelBlocker, collectLinks, hasPixel };
 })(globalThis);

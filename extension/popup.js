@@ -25,7 +25,8 @@ function esc(str) {
 document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.lang = uiLocale();
   applyI18n();
-  const { serverUrl: saved, authFailed: savedAuthFailed } = await chrome.storage.sync.get(['serverUrl', 'authFailed']);
+  const { serverUrl: saved, authFailed: savedAuthFailed, trackLinks: savedTrackLinks } = await chrome.storage.sync.get(['serverUrl', 'authFailed', 'trackLinks']);
+  document.getElementById('track-links').checked = savedTrackLinks === true;
   const { dashboardPassword: savedPass } = await chrome.storage.local.get(['dashboardPassword']);
   serverUrl = saved || '';
   dashboardPassword = savedPass || '';
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('save-btn').addEventListener('click', saveSettings);
   document.getElementById('delete-btn').addEventListener('click', deleteCurrentPixel);
+  document.getElementById('track-links').addEventListener('change', e => chrome.storage.sync.set({ trackLinks: e.target.checked }));
   document.getElementById('forget-send-btn').addEventListener('click', async () => {
     await chrome.storage.local.remove('sendSignatures');
     showToast(t('forgetSendDone'));
@@ -203,6 +205,7 @@ async function showDetail(id) {
       data.recipient ? t('detailTo', [data.recipient]) : '';
     document.getElementById('detail-opens').textContent = data.opens;
     document.getElementById('detail-skipped').textContent = data.skipped || 0;
+    document.getElementById('detail-clicks').textContent = data.clicks || 0;
     document.getElementById('detail-protection').textContent =
       data.hasSenderProtection ? t('protectionActive') : t('protectionOff');
     document.getElementById('detail-last').textContent = data.events.length

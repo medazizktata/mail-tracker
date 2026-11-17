@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   generatePassword, renderWranglerConfig, parseAccounts, parseKvId, parseWorkerUrl,
-  isNotLoggedIn, validWorkerName, validSubdomain, suggestSubdomain,
+  isNotLoggedIn, validWorkerName, validSubdomain, suggestSubdomain, parseKvList,
 } from '../scripts/lib.mjs';
 
 // Outputs copied from real wrangler 4.135.0 runs during this project.
@@ -26,6 +26,28 @@ const KV_CREATE = `🌀 Creating namespace with title "example-tracker"
     }
   ]
 }`;
+// Seen on a real run: with a wrangler.toml in the folder, wrangler prints the snippet as TOML.
+const KV_CREATE_TOML = `🌀 Creating namespace with title "mt-setup-test-tracker"
+✨ Success!
+Add the following to your configuration file in your kv_namespaces array:
+[[kv_namespaces]]
+binding = "mt_setup_test_tracker"
+id = "fedcba9876543210fedcba9876543210"
+
+Done in 2s using pnpm v12.9.1`;
+const KV_LIST = ` ⛅️ wrangler 4.135.0 (update available 4.164.0)
+[
+  {
+    "id": "fedcba9876543210fedcba9876543210",
+    "title": "mt-setup-test-tracker",
+    "supports_url_encoding": true
+  },
+  {
+    "id": "0123456789abcdef0123456789abcdef",
+    "title": "example-tracker"
+  }
+]
+Done in 1.4s using pnpm v12.9.1`;
 const DEPLOY = `Uploaded example-tracker (3.88 sec)
 Deployed example-tracker triggers (3.92 sec)
   https://example-tracker.someone.workers.dev
@@ -43,6 +65,16 @@ describe('reading wrangler output', () => {
   test('the namespace id comes out of kv create', () => {
     assert.equal(parseKvId(KV_CREATE), '0123456789abcdef0123456789abcdef');
     assert.equal(parseKvId('nothing here'), null);
+  });
+
+  test('the namespace id also comes out of the TOML form wrangler prints beside a wrangler.toml', () => {
+    assert.equal(parseKvId(KV_CREATE_TOML), 'fedcba9876543210fedcba9876543210');
+  });
+
+  test('a list of namespaces is read through the banner and the trailing line', () => {
+    assert.deepEqual(parseKvList(KV_LIST).map(n => n.title), ['mt-setup-test-tracker', 'example-tracker']);
+    assert.deepEqual(parseKvList('[]\nDone in 1s'), []);
+    assert.deepEqual(parseKvList('no json here'), []);
   });
 
   test('the worker URL comes out of a deploy', () => {

@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import { encodeConnectionCode } from '../src/shared.js';
 import {
-  generatePassword, isNotLoggedIn, parseAccounts, parseKvId, parseWorkerUrl,
+  generatePassword, isNotLoggedIn, parseAccounts, parseKvId, parseKvList, parseWorkerUrl,
   renderWranglerConfig, suggestSubdomain, validSubdomain, validWorkerName,
 } from './lib.mjs';
 
@@ -123,7 +123,7 @@ function ensureKv(accountId, state) {
   let id = parseKvId(created.out);
   if (!id) { // it may already exist from an earlier attempt
     const list = wrangler(['kv', 'namespace', 'list'], { env });
-    try { id = JSON.parse(list.out.slice(list.out.indexOf('['))).find(n => n.title === title)?.id || null; } catch { /* below */ }
+    id = parseKvList(list.out).find(n => n.title === title)?.id || null;
   }
   if (!id) die(`Could not create the storage namespace "${title}".\n${created.out.trim().split('\n').slice(-4).join('\n')}`);
   return id;

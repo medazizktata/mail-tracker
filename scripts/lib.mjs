@@ -25,9 +25,24 @@ export function parseAccounts(text) {
   return accounts;
 }
 
+// wrangler prints the new namespace as JSON (`"id": "..."`), or as TOML (`id = "..."`) when a
+// wrangler.toml is in the folder; both carry the same 32-hex id.
 export function parseKvId(text) {
-  const m = text.match(/"id":\s*"([0-9a-f]{32})"/);
+  const m = text.match(/\bid"?\s*[:=]\s*"([0-9a-f]{32})"/);
   return m ? m[1] : null;
+}
+
+// `wrangler kv namespace list` prints a JSON array, possibly with a banner before it and a line
+// such as "Done in 1s" after it.
+export function parseKvList(text) {
+  const last = text.lastIndexOf(']');
+  for (let i = text.indexOf('['); i !== -1 && i < last; i = text.indexOf('[', i + 1)) {
+    try {
+      const list = JSON.parse(text.slice(i, last + 1));
+      if (Array.isArray(list)) return list;
+    } catch { /* try the next '[' */ }
+  }
+  return last !== -1 && /\[\s*\]/.test(text) ? [] : [];
 }
 
 export function parseWorkerUrl(text) {

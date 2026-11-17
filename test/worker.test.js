@@ -717,3 +717,30 @@ describe('an open within seconds of sending is the sender\'s own draft, not a re
     assert.equal(d.opens, 0);
   });
 });
+
+describe('the sending account is kept with the tracker, so any browser can reopen the mail', () => {
+  const create = body => worker.fetch(req('/new', { method: 'POST', body: { to: 'her@example.com', subject: 'Hi', ...body } }), env);
+  const list = async () => (await worker.fetch(req('/list'), env)).json();
+
+  test('a valid account is stored and comes back in the list', async () => {
+    const { id } = await (await create({ account: 'me@example.com' })).json();
+    assert.equal((await read(id)).account, 'me@example.com');
+    assert.equal((await list()).find(r => r.id === id).account, 'me@example.com');
+  });
+
+  test('a missing or malformed account never refuses the mail; it is just not stored', async () => {
+    for (const account of [undefined, '', 'not an address', 'a@b', 'x'.repeat(200) + '@example.com', 5, null, {}, ['a@b.co'], 'two@a.co,three@b.co']) {
+      const res = await create({ account });
+      assert.equal(res.status, 200, String(account).slice(0, 20));
+      const { id } = await res.json();
+      assert.ok(!(await read(id)).account, `stored ${String(account).slice(0, 20)}`);
+      assert.equal((await list()).find(r => r.id === id).account || '', '');
+    }
+  });
+
+  test('the list metadata still fits its 1024-byte cap with a long subject and account', () => {
+    const meta = trackerMeta({ recipient: 'r@example.com', subject: 'é'.repeat(200), bodyPreview: 'é'.repeat(200), account: 'a'.repeat(80) + '@example.com', createdAt: '2026-11-17T00:00:00.000Z' });
+    assert.ok(new TextEncoder().encode(JSON.stringify(meta)).length <= 1024);
+    assert.equal(meta.account, 'a'.repeat(80) + '@example.com');
+  });
+});

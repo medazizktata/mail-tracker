@@ -282,8 +282,7 @@ async function loadPixels() {
       return new Date(b.lastOpen) - new Date(a.lastOpen);
     });
 
-    const { gmailAccounts = {}, lastGmailAccount } = await chrome.storage.local.get(['gmailAccounts', 'lastGmailAccount']);
-    const list = document.createElement('div');
+        const list = document.createElement('div');
     list.className = 'pixel-list';
 
     pixels.forEach(p => {
@@ -324,7 +323,7 @@ async function loadPixels() {
       // Gmail keeps no id for the mail here, so this opens a search for it in the sending account.
       const open = document.createElement('a');
       open.className = 'pixel-open';
-      open.href = MailTrackerLogic.gmailSearchUrl({ account: gmailAccounts[p.id] || lastGmailAccount, recipient: p.recipient, subject: p.subject });
+      open.href = MailTrackerLogic.gmailSearchUrl({ account: p.account, recipient: p.recipient, subject: p.subject });
       open.target = '_blank';
       open.rel = 'noopener noreferrer';
       open.textContent = '\u2197';

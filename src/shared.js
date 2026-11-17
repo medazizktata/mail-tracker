@@ -120,6 +120,13 @@ export function requireAuth(env, extraHeaders = {}) {
 // Metadata is hard-capped at 1024 bytes, hence the short previews.
 const META_TEXT_LIMIT = 80;
 
+// The Gmail address the mail was sent from, so the extension can reopen it in the right account from any
+// browser. A hint only: anything that is not one plain address is dropped, never an error.
+const ACCOUNT_RE = /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/;
+export function validAccount(value) {
+  return typeof value === 'string' && value.length <= 100 && ACCOUNT_RE.test(value) ? value : '';
+}
+
 export function trackerMeta(data) {
   const meta = {
     opens: data.opens || 0,
@@ -129,6 +136,7 @@ export function trackerMeta(data) {
     subject: (data.subject || '').slice(0, META_TEXT_LIMIT),
     bodyPreview: (data.bodyPreview || '').slice(0, META_TEXT_LIMIT),
     messageId: data.messageId || '',
+    ...(data.account ? { account: data.account } : {}),
     createdAt: data.createdAt || null,
     lastOpen: data.events?.length ? data.events[data.events.length - 1].time : null,
   };

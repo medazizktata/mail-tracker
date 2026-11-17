@@ -85,6 +85,7 @@ Each pixel in KV (key = 16 hex chars from a UUID; it was 8, which is only
   "subject": "...",
   "bodyPreview": "...",
   "messageId": "...",
+  "account": "sender@gmail.com",
   "createdAt": "ISO-8601",
   "events": [
     { "time": "ISO-8601", "ip": "...", "country": "US", "userAgent": "..." }
@@ -167,8 +168,10 @@ their own thread.
 - Per-recipient tracking: each recipient gets their own pixel ID
 - Background service worker polls `/feed` every 5 minutes for new opens
 - The popup list's arrow opens the mail in Gmail as a search in Sent (recipient + subject): a tracker keeps no
-  Gmail message id. `gmail.js` remembers the sending account per tracker id in `chrome.storage.local`
-  (`gmailAccounts`, latest 500) so the link lands in the right account when several are signed in.
+  Gmail message id. `gmail.js` sends the sending account (read from the Gmail tab title) in `/new`, and the
+  worker keeps it as `account`, so any browser opens the mail in the right account. It was first kept in
+  `chrome.storage.local`, which broke for mail sent from another browser. Trackers made before this have no
+  account and open in Gmail's default one.
 
 ## Deployment
 

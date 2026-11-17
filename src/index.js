@@ -1,4 +1,4 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch, validLinks } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch, validLinks, validAccount } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -355,13 +355,14 @@ export default {
       const id = crypto.randomUUID().replace(/-/g, '').slice(0, ID_LENGTH);
       const senderIp = request.headers.get('cf-connecting-ip') || 'unknown';
 
-      let recipient = null, subject = '', bodyPreview = '', messageId = '', links = [];
+      let recipient = null, subject = '', bodyPreview = '', messageId = '', links = [], account = '';
       try {
         const body = await request.json();
         recipient = body.to || null;
         subject = body.subject || '';
         bodyPreview = body.bodyPreview || '';
         messageId = body.messageId || '';
+        account = validAccount(body.account);
         if (body.links !== undefined) {
           if (!Array.isArray(body.links)) return json({ error: 'links must be an array' }, 400);
           links = validLinks(body.links);
@@ -381,7 +382,7 @@ export default {
 
       await putTracker(env, id, {
         opens: 0, events: [], filteredEvents: [], skipped: 0,
-        senderIp, recipient, subject, bodyPreview, messageId, links,
+        senderIp, recipient, subject, bodyPreview, messageId, links, account,
         createdAt: new Date().toISOString(),
       });
 
@@ -410,7 +411,7 @@ export default {
       return json(trackers.map(t => ({
         id: t.id, opens: t.opens || 0, skipped: t.skipped || 0, clicks: t.clicks || 0,
         recipient: t.recipient || null, subject: t.subject || '',
-        bodyPreview: t.bodyPreview || '', messageId: t.messageId || '',
+        bodyPreview: t.bodyPreview || '', messageId: t.messageId || '', account: t.account || '',
         createdAt: t.createdAt || null, lastOpen: t.lastOpen || null,
       })));
     }

@@ -121,16 +121,15 @@ describe('the popup list can open the mail in Gmail', () => {
   });
   test('each row carries a new-tab link that does not also open the detail view', () => {
     const js = code('popup.js');
-    assert.match(js, /MailTrackerLogic\.gmailSearchUrl\(\{ account: gmailAccounts\[p\.id\]/);
+    assert.match(js, /MailTrackerLogic\.gmailSearchUrl\(\{ account: p\.account/);
     assert.match(js, /open\.target = '_blank'/);
     assert.match(js, /open\.rel = 'noopener noreferrer'/);
     assert.match(js, /open\.addEventListener\('click', e => e\.stopPropagation\(\)\)/);
   });
-  test('the sender account is remembered per tracker id, capped', () => {
-    const js = code('gmail.js');
-    assert.match(js, /MailTrackerLogic\.gmailAccount\(document\.title\)/);
-    assert.match(js, /map\[data\.id\] = account/);
-    assert.match(js, /ids\.length - 500\b/);
+  test('the sending account travels with the tracker, not in this browser\'s storage', () => {
+    assert.match(code('gmail.js'), /account: MailTrackerLogic\.gmailAccount\(document\.title\) \|\| ''/);
+    assert.match(code('popup.js'), /account: p\.account, recipient/);
+    for (const f of ['gmail.js', 'popup.js']) assert.doesNotMatch(code(f), /gmailAccounts|lastGmailAccount/, f);
   });
   test('the link label exists in both languages', () => {
     for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).openInGmail?.message, lang);
@@ -142,17 +141,5 @@ describe('the popup labels an early open as the sender\'s own, not a bot', () =>
     assert.match(code('popup.js'), /e\.reason === 'too_fast'/);
     assert.match(code('popup.js'), /isTooFast \? t\('tooSoon'\)/);
     for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).tooSoon?.message, lang);
-  });
-});
-
-describe('a row with no remembered account still opens in the sending account', () => {
-  test('the popup falls back to the account of the last tracked send', () => {
-    assert.match(code('popup.js'), /account: gmailAccounts\[p\.id\] \|\| lastGmailAccount/);
-    assert.match(code('popup.js'), /get\(\['gmailAccounts', 'lastGmailAccount'\]\)/);
-  });
-  test('every tracked send updates it, and the first page seeds it only when unset', () => {
-    const js = code('gmail.js');
-    assert.match(js, /chrome\.storage\.local\.set\(\{ gmailAccounts: map, lastGmailAccount: account \}\)/);
-    assert.match(js, /if \(!r\.lastGmailAccount\) chrome\.storage\.local\.set\(\{ lastGmailAccount: account \}\)/);
   });
 });

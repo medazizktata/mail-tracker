@@ -136,3 +136,23 @@ describe('the popup list can open the mail in Gmail', () => {
     for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).openInGmail?.message, lang);
   });
 });
+
+describe('the popup labels an early open as the sender\'s own, not a bot', () => {
+  test('too_fast has its own label in code and both languages', () => {
+    assert.match(code('popup.js'), /e\.reason === 'too_fast'/);
+    assert.match(code('popup.js'), /isTooFast \? t\('tooSoon'\)/);
+    for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).tooSoon?.message, lang);
+  });
+});
+
+describe('a row with no remembered account still opens in the sending account', () => {
+  test('the popup falls back to the account of the last tracked send', () => {
+    assert.match(code('popup.js'), /account: gmailAccounts\[p\.id\] \|\| lastGmailAccount/);
+    assert.match(code('popup.js'), /get\(\['gmailAccounts', 'lastGmailAccount'\]\)/);
+  });
+  test('every tracked send updates it, and the first page seeds it only when unset', () => {
+    const js = code('gmail.js');
+    assert.match(js, /chrome\.storage\.local\.set\(\{ gmailAccounts: map, lastGmailAccount: account \}\)/);
+    assert.match(js, /if \(!r\.lastGmailAccount\) chrome\.storage\.local\.set\(\{ lastGmailAccount: account \}\)/);
+  });
+});

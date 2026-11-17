@@ -37,7 +37,8 @@ const MAX_TRACKERS = 1000;
 const MAX_LEGACY_READS = 20;
 const MAX_SELF_VIEW_IDS = 50;
 
-// Scanners follow every link the moment a mail arrives, which no reader does.
+// Scanners follow every link the moment a mail arrives, and a sender's reopened draft loads the pixel at once;
+// no reader does either within seconds of the send.
 const TOO_FAST_MS = 10_000;
 
 /**
@@ -253,6 +254,18 @@ export default {
         if (existing.filteredEvents.length > 20) existing.filteredEvents = existing.filteredEvents.slice(-20);
         await putTracker(env, id, existing);
         console.log(`[open] id=${id} SKIPPED reason=bot_proxy ua=${userAgent}`);
+        return servePixel();
+      }
+
+      // Filter 2b: too soon after sending. A reader cannot open a mail seconds after it left; what loads
+      // the pixel then is the sender's own draft (Undo reopens it and Gmail's image proxy fetches the
+      // pixel) or a delivery scanner. Gmail's proxy cannot be filtered by name, so use the time.
+      if (nowMs - new Date(existing.createdAt).getTime() < TOO_FAST_MS) {
+        if (isRepeatHit(existing.filteredEvents || [], ip, nowMs)) return servePixel();
+        existing.skipped = (existing.skipped || 0) + 1;
+        existing.filteredEvents = [...(existing.filteredEvents || []), { time: now, ip, userAgent, reason: 'too_fast' }].slice(-20);
+        await putTracker(env, id, existing);
+        console.log(`[open] id=${id} SKIPPED reason=too_fast ip=${ip}`);
         return servePixel();
       }
 

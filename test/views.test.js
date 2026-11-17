@@ -73,7 +73,7 @@ describe('the detail page shows clicks and tracked links', () => {
   test('filtered reasons are labelled, including the new ones', () => {
     const html = renderDetail('abcdef0123456789', data, 'n', ORIGIN);
     assert.match(html, /apple_mpp/);
-    assert.match(html, /Too fast/);
+    assert.match(html, /Too soon after sending/);
   });
 });
 

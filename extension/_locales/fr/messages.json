@@ -308,5 +308,8 @@
   },
   "openInGmail": {
     "message": "Ouvrir dans Gmail"
+  },
+  "tooSoon": {
+    "message": "Trop tôt après l'envoi"
   }
 }

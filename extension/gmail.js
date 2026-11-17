@@ -85,6 +85,21 @@
     learnedSends = r.sendSignatures || [];
   });
 
+  // First run after an update: older trackers have no remembered account, so start from the one this
+  // Gmail tab is in. It is replaced by the account of every tracked send from then on.
+  // Gmail puts the address in the title only after it has loaded, so watch the title until it appears.
+  const seedAccount = observer => {
+    const account = MailTrackerLogic.gmailAccount(document.title);
+    if (!account) return false;
+    if (observer) observer.disconnect();
+    chrome.storage.local.get('lastGmailAccount', r => {
+      if (!r.lastGmailAccount) chrome.storage.local.set({ lastGmailAccount: account });
+    });
+    return true;
+  };
+  const titleEl = document.querySelector('title');
+  if (titleEl && !seedAccount()) new MutationObserver((_, obs) => seedAccount(obs)).observe(titleEl, { childList: true, characterData: true, subtree: true });
+
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.serverUrl) serverUrl = changes.serverUrl.newValue || '';
     if (changes.dashboardPassword) dashboardPassword = changes.dashboardPassword.newValue || '';
@@ -247,7 +262,8 @@
         map[data.id] = account;
         const ids = Object.keys(map); // oldest first; keep the latest 500
         for (const old of ids.slice(0, Math.max(0, ids.length - 500))) delete map[old];
-        chrome.storage.local.set({ gmailAccounts: map });
+        // lastGmailAccount covers trackers made before accounts were remembered.
+        chrome.storage.local.set({ gmailAccounts: map, lastGmailAccount: account });
       });
     }
     console.log(LOG, 'Injected tracker', data.id, 'for', recipients.length, 'recipient(s)');

@@ -118,6 +118,11 @@ Three filters run before recording an open:
    STS, Slurp, Office prefetch)
 3. **Dedup window** — ignores same-IP opens within 5 seconds
 
+An open less than 10 s after the tracker was created is filed as `too_fast`: it is the sender's own
+reopened draft (Undo, then Gmail's image proxy loads the pixel; seen live, 3 s after the send) or a delivery
+scanner, never a reader. Gmail's proxy cannot be filtered by name, so the time is the only signal. It does not
+cover an undo window longer than 10 s.
+
 Opens from Apple's 17.0.0.0/8 are filed as `apple_mpp` (Mail Privacy Protection prefetches at
 delivery) unless `COUNT_APPLE_PREFETCH` is set. Clicks go through the same sender-IP and bot filters,
 plus a 10 s "too fast" rule, and `/c/` always redirects even if recording fails.

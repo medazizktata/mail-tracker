@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import worker from '../src/index.js';
 import { fakeKV } from '../support/fake-kv.js';
-import { encodeConnectionCode } from '../src/shared.js';
+import { encodeConnectionCode, putTracker } from '../src/shared.js';
 import { checkAuth, esc, isBot, jsonForScript, trackerMeta, MAX_HITS_PER_TRACKER } from '../src/shared.js';
 import { renderDetail } from '../src/views/detail.js';
 import { renderDashboard } from '../src/views/dashboard.js';
@@ -31,13 +31,23 @@ beforeEach(() => {
   env = { TRACKER: fakeKV(), DASHBOARD_PASSWORD: PASSWORD };
 });
 
-async function createTracker(overrides = {}) {
+// A reader cannot open a mail seconds after it was sent, so a brand-new tracker files opens away as
+// too_fast. Tests of ordinary opens use an aged tracker; pass { fresh: true } to keep it brand new.
+async function createTracker({ fresh = false, ...overrides } = {}) {
   const res = await worker.fetch(
     req('/new', { method: 'POST', body: { to: 'her@example.com', subject: 'Hi', ...overrides }, headers: { 'cf-connecting-ip': SENDER_IP } }),
     env,
   );
   assert.equal(res.status, 200);
-  return (await res.json()).id;
+  const { id } = await res.json();
+  if (!fresh) await ageTracker(id, 60_000);
+  return id;
+}
+
+async function ageTracker(id, ms) {
+  const d = await env.TRACKER.get(id, 'json');
+  d.createdAt = new Date(Date.now() - ms).toISOString();
+  await putTracker(env, id, d);
 }
 
 function openPixel(id, { ip = OPENER_IP, userAgent = 'Mozilla/5.0' } = {}) {
@@ -658,5 +668,52 @@ describe('the pixel response is as uncacheable as we can make it', () => {
     assert.equal(res.headers.get('Expires'), '0');
     assert.equal(res.headers.get('Surrogate-Control'), 'no-store');
     assert.equal(res.headers.get('Pragma'), 'no-cache');
+  });
+});
+
+describe('an open within seconds of sending is the sender\'s own draft, not a reader', () => {
+  // Found in real Gmail: Undo reopens the draft, Gmail's image proxy loads the pixel 3 s after the
+  // tracker was made, and that proxy is not a bot (it is how every Gmail reader's open arrives).
+  const GOOGLE_PROXY = 'Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)';
+
+  test('a fresh tracker files the open as too_fast, counts nothing, and still serves the pixel', async () => {
+    const id = await createTracker({ fresh: true });
+    const res = await openPixel(id, { userAgent: GOOGLE_PROXY });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    const d = await read(id);
+    assert.equal(d.opens, 0);
+    assert.equal(d.events.length, 0);
+    assert.equal(d.skipped, 1);
+    assert.equal(d.filteredEvents.at(-1).reason, 'too_fast');
+  });
+
+  test('the same open on an older tracker is a genuine one', async () => {
+    const id = await createTracker();
+    await openPixel(id, { userAgent: GOOGLE_PROXY });
+    assert.equal((await read(id)).opens, 1);
+  });
+
+  test('the cut-off is 10 seconds', async () => {
+    const early = await createTracker({ fresh: true }); await ageTracker(early, 9_000);
+    const late = await createTracker({ fresh: true }); await ageTracker(late, 11_000);
+    await openPixel(early); await openPixel(late);
+    assert.equal((await read(early)).opens, 0);
+    assert.equal((await read(late)).opens, 1);
+  });
+
+  test('a tracker with no creation time still counts opens', async () => {
+    const id = await createTracker();
+    const d = await read(id); delete d.createdAt; await putTracker(env, id, d);
+    await openPixel(id);
+    assert.equal((await read(id)).opens, 1);
+  });
+
+  test('the early open is dedup-filed like any other filtered hit, so repeats do not pile up', async () => {
+    const id = await createTracker({ fresh: true });
+    for (let i = 0; i < 4; i++) await openPixel(id, { userAgent: GOOGLE_PROXY });
+    const d = await read(id);
+    assert.equal(d.skipped, 1);
+    assert.equal(d.opens, 0);
   });
 });

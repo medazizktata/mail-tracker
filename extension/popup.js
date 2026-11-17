@@ -282,7 +282,7 @@ async function loadPixels() {
       return new Date(b.lastOpen) - new Date(a.lastOpen);
     });
 
-    const { gmailAccounts = {} } = await chrome.storage.local.get(['gmailAccounts']);
+    const { gmailAccounts = {}, lastGmailAccount } = await chrome.storage.local.get(['gmailAccounts', 'lastGmailAccount']);
     const list = document.createElement('div');
     list.className = 'pixel-list';
 
@@ -324,7 +324,7 @@ async function loadPixels() {
       // Gmail keeps no id for the mail here, so this opens a search for it in the sending account.
       const open = document.createElement('a');
       open.className = 'pixel-open';
-      open.href = MailTrackerLogic.gmailSearchUrl({ account: gmailAccounts[p.id], recipient: p.recipient, subject: p.subject });
+      open.href = MailTrackerLogic.gmailSearchUrl({ account: gmailAccounts[p.id] || lastGmailAccount, recipient: p.recipient, subject: p.subject });
       open.target = '_blank';
       open.rel = 'noopener noreferrer';
       open.textContent = '\u2197';
@@ -514,10 +514,11 @@ function renderEventList(container, events, isFiltered) {
       const label = document.createElement('span');
       const isSelf = e.reason === 'self_view' || e.reason === 'sender_ip';
       const isApple = e.reason === 'apple_mpp';
+      const isTooFast = e.reason === 'too_fast';
       label.style.cssText = isSelf
         ? 'color:#fb923c;font-size:10px;margin-left:6px;'
-        : isApple ? 'color:#9ca3af;font-size:10px;margin-left:6px;' : 'color:#ef4444;font-size:10px;margin-left:6px;';
-      label.textContent = isSelf ? t('selfOpen') : isApple ? t('appleMpp') : t('botProxy');
+        : isApple || isTooFast ? 'color:#9ca3af;font-size:10px;margin-left:6px;' : 'color:#ef4444;font-size:10px;margin-left:6px;';
+      label.textContent = isSelf ? t('selfOpen') : isApple ? t('appleMpp') : isTooFast ? t('tooSoon') : t('botProxy');
       timeDiv.appendChild(label);
     }
 

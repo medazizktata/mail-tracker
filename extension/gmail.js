@@ -411,7 +411,7 @@
 
   // Add read indicators to sent emails in inbox view
   async function addInboxReadIndicators() {
-    if (!serverUrl || !dashboardPassword) return;
+    if (!serverUrl || !dashboardPassword) return null;
     
     console.log(LOG, 'addInboxReadIndicators called');
     
@@ -429,10 +429,12 @@
     const sentRows = document.querySelectorAll('tr[role="row"]');
     console.log(LOG, 'Found', sentRows.length, 'email rows');
     
+    let sentSeen = 0;
     sentRows.forEach((row, index) => {
       const toField = row.querySelector('.yW');
       const firstRecipient = toField && toField.querySelector('span[email]');
       if (!firstRecipient || !MailTrackerLogic.isSentRow(toField.textContent, firstRecipient.textContent)) return;
+      sentSeen++;
       
       const emailSpan = toField.querySelector('span[email]');
       if (!emailSpan) return; // Remove the duplicate check since we cleared all indicators above
@@ -482,6 +484,14 @@
       emailSpan.parentNode.insertBefore(statusEl, emailSpan.nextSibling);
       console.log(LOG, 'Added indicator for tracked email:', email);
     });
+    return sentSeen;
+  }
+
+  // Gmail swaps the list a moment after the hash changes, so retry until Sent rows are there.
+  async function drawIndicators(attempt) {
+    if (location.hash !== '#sent') return;
+    const delay = MailTrackerLogic.indicatorRetryDelay(attempt, await addInboxReadIndicators());
+    if (delay !== null) setTimeout(() => drawIndicators(attempt + 1), delay);
   }
 
   // ---- Self-view detection ----
@@ -599,7 +609,7 @@
         console.log(LOG, 'Entered sent folder, loading indicators');
         // Clear cache on view change to force fresh data
         trackingDataCache = null;
-        setTimeout(() => addInboxReadIndicators(), 1000);
+        setTimeout(() => drawIndicators(0), 1000);
       } else if (newView !== currentView) {
         currentView = newView;
         console.log(LOG, 'Changed to:', currentView, '- not sent folder, skipping');

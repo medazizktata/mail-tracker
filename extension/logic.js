@@ -28,5 +28,16 @@
     return matches.reduce((best, t) => (new Date(t.createdAt) > new Date(best.createdAt) ? t : best));
   }
 
-  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker };
+  // Gmail swaps the list a moment after the hash changes to #sent, so the first pass can still see the
+  // inbox rows (seen live: 110 inbox rows, then nothing drawn). Run the pass again until Sent rows are
+  // on screen, a bounded number of times. `drawn` is how many Sent rows the last pass saw, or
+  // null/undefined if it could not run at all (not configured), in which case there is nothing to retry.
+  const MAX_INDICATOR_ATTEMPTS = 8;
+  const INDICATOR_RETRY_MS = 1500;
+  function indicatorRetryDelay(attempt, drawn) {
+    if (drawn === null || drawn === undefined || drawn > 0) return null;
+    return attempt < MAX_INDICATOR_ATTEMPTS ? INDICATOR_RETRY_MS : null;
+  }
+
+  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay };
 })(globalThis);

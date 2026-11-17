@@ -85,3 +85,23 @@ describe('findMatchingTracker', () => {
     assert.equal(trackers.map(x => x.id).join(), before);
   });
 });
+
+describe('indicatorRetryDelay: draw the Sent ticks again until the Sent rows are on screen', () => {
+  const { indicatorRetryDelay } = globalThis.MailTrackerLogic;
+
+  test('keeps trying while no Sent row has been seen', () => {
+    for (let attempt = 0; attempt < 8; attempt++) assert.equal(indicatorRetryDelay(attempt, 0), 1500);
+  });
+  test('stops once Sent rows were drawn', () => {
+    assert.equal(indicatorRetryDelay(0, 1), null);
+    assert.equal(indicatorRetryDelay(3, 25), null);
+  });
+  test('gives up after a bounded number of attempts', () => {
+    assert.equal(indicatorRetryDelay(8, 0), null);
+    assert.equal(indicatorRetryDelay(99, 0), null);
+  });
+  test('does not retry when the pass could not run (not configured)', () => {
+    assert.equal(indicatorRetryDelay(0, null), null);
+    assert.equal(indicatorRetryDelay(0, undefined), null);
+  });
+});

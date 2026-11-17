@@ -60,6 +60,11 @@ describe('findMatchingTracker', () => {
     assert.equal(findMatchingTracker(trackers, 'BOB@x.com', { subject: 'Plan' }).id, 'group');
   });
 
+  test('a label stored with capitals still matches a lower-case address', () => {
+    const list = [t('caps', 'Bob@X.com', 'Hi', '2026-11-02T10:00:00Z')];
+    assert.equal(findMatchingTracker(list, 'bob@x.com', { subject: 'Hi' }).id, 'caps');
+  });
+
   test('an unknown recipient gets nothing', () => {
     assert.equal(findMatchingTracker(trackers, 'zed@x.com', { subject: 'Invoice' }), null);
   });

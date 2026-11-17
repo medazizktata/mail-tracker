@@ -10,6 +10,8 @@
 
 **繁體中文** | [English](README-en.md)
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/medazizktata/mail-tracker)
+
 </div>
 
 ## 總覽

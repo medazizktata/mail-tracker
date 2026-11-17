@@ -22,6 +22,9 @@ The history of all three is kept in this repository's git log; every commit carr
 - Send button found automatically from the shape of Gmail's shortcut label (works in any Gmail language), with a
   learn-once fallback; all extension text in `_locales` (English, French); sent-list ticks matched on subject
   and retried until the Sent rows appear.
+- One-step Cloudflare setup: a Deploy to Cloudflare button (the KV binding has no id, so Cloudflare creates the
+  storage), `pnpm run setup` (wrangler's own login, deploy, random password), and a `/connect` page whose one code
+  the extension takes in a single paste.
 - Tests: unit tests for the worker and the extension's pure logic, plus guards on the extension's packaging,
   permissions and network use.
 - `wrangler.toml` is a placeholder; it no longer names another person's Cloudflare account.

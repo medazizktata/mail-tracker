@@ -1,5 +1,7 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch, validLinks, validAccount } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch, validLinks, validAccount, constantTimeEqual } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
+import { SESSION_SECONDS, signSession, readSession, cookieName, sessionCookie, clearedCookie, cookieValue, safeNext } from './session.js';
+import { renderLogin } from './views/login.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderConnect } from './views/connect.js';
@@ -113,6 +115,67 @@ async function listTrackers(env) {
   return out;
 }
 
+const secureCookie = url => url.protocol === 'https:';
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const noStore = { 'Cache-Control': 'no-store' };
+
+/** 'ok' (Basic password, or a valid session cookie), 'cross-site' (a cookie used to write from another site), or 'none'. */
+async function authenticate(request, env, url) {
+  if (checkAuth(request, env)) return 'ok';
+  if (!env.DASHBOARD_PASSWORD) return 'none';
+  const token = cookieValue(request.headers.get('Cookie'), cookieName(secureCookie(url)));
+  if (!(await readSession(token, env.DASHBOARD_PASSWORD, Math.floor(Date.now() / 1000)))) return 'none';
+  // SameSite=Strict already keeps the cookie off cross-site requests; this refuses a write that arrives
+  // without our own Origin anyway. Basic-auth callers (the extension) never reach it.
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && request.headers.get('Origin') !== url.origin) return 'cross-site';
+  return 'ok';
+}
+
+// A page load sends Sec-Fetch-Mode: navigate (or at least asks for HTML); API calls do not.
+const wantsPage = request => request.method === 'GET'
+  && (request.headers.get('Sec-Fetch-Mode') === 'navigate' || /\btext\/html\b/.test(request.headers.get('Accept') || ''));
+
+/** null when the caller may go on, otherwise the response to return. */
+async function gate(request, env, url, { page = false, cors = false } = {}) {
+  const who = await authenticate(request, env, url);
+  if (who === 'ok') return null;
+  if (who === 'cross-site') return json({ error: 'Cross-site request refused' }, 403);
+  if (page && env.DASHBOARD_PASSWORD && wantsPage(request)) {
+    return new Response(null, { status: 303, headers: { Location: `/login?next=${encodeURIComponent(safeNext(url.pathname))}`, ...noStore } });
+  }
+  return requireAuth(env, cors ? CORS_HEADERS : {});
+}
+
+async function handleLogin(request, env, url) {
+  if (!env.DASHBOARD_PASSWORD) return requireAuth(env); // 503: never a way in without a password
+  if (request.method === 'GET') {
+    const next = safeNext(url.searchParams.get('next'));
+    if ((await authenticate(request, env, url)) === 'ok') return new Response(null, { status: 303, headers: { Location: next, ...noStore } });
+    const nonce = crypto.randomUUID();
+    return html(renderLogin({ next, nonce }), nonce, noStore, { formAction: true });
+  }
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, POST' } });
+  if (request.headers.get('Origin') && request.headers.get('Origin') !== url.origin) return new Response('Forbidden', { status: 403 });
+
+  const text = await request.text();
+  const form = new URLSearchParams(text.length <= 2000 ? text : '');
+  const password = form.get('password') || '';
+  const next = safeNext(form.get('next'));
+  if (password && constantTimeEqual(password, env.DASHBOARD_PASSWORD)) {
+    const token = await signSession(env.DASHBOARD_PASSWORD, Math.floor(Date.now() / 1000) + SESSION_SECONDS);
+    return new Response(null, { status: 303, headers: { Location: next, 'Set-Cookie': sessionCookie(token, secureCookie(url)), ...noStore } });
+  }
+  await sleep(Number(env.LOGIN_FAIL_DELAY_MS ?? 600)); // makes guessing slow without any state to keep
+  const nonce = crypto.randomUUID();
+  return html(renderLogin({ error: 'That password is incorrect.', next, nonce }), nonce, noStore, { status: 401, formAction: true });
+}
+
+function handleLogout(request, url) {
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'POST' } });
+  if (request.headers.get('Origin') && request.headers.get('Origin') !== url.origin) return new Response('Forbidden', { status: 403 });
+  return new Response(null, { status: 303, headers: { Location: '/login', 'Set-Cookie': clearedCookie(secureCookie(url)), ...noStore } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -121,10 +184,14 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
+    // /login and /logout: the browser's way in. The extension and curl keep using Basic auth.
+    if (url.pathname === '/login') return handleLogin(request, env, url);
+    if (url.pathname === '/logout') return handleLogout(request, url);
+
     // POST /self — extension signals sender viewed a thread (batch: multiple pixel IDs)
     // Called AFTER opens have been recorded, so we retroactively reclassify.
     if (url.pathname === '/self' && request.method === 'POST') {
-      if (!checkAuth(request, env)) return requireAuth(env, CORS_HEADERS);
+      { const denied = await gate(request, env, url, { cors: true }); if (denied) return denied; }
 
       let ids;
       try {
@@ -325,7 +392,7 @@ export default {
 
     // GET /s/:id — stats for a tracking pixel
     if (url.pathname.startsWith('/s/')) {
-      if (!checkAuth(request, env)) return requireAuth(env);
+      { const denied = await gate(request, env, url, { page: url.searchParams.get('format') !== 'json' }); if (denied) return denied; }
 
       const id = url.pathname.slice('/s/'.length);
       if (!id || id.startsWith(INTERNAL_PREFIX)) return new Response('Missing id', { status: 400 });
@@ -347,7 +414,7 @@ export default {
 
     // POST /new — create a new tracking pixel
     if (url.pathname === '/new') {
-      if (!checkAuth(request, env)) return requireAuth(env, CORS_HEADERS);
+      { const denied = await gate(request, env, url, { cors: true }); if (denied) return denied; }
       // State changes are POST/DELETE only. A GET can be fired from any page
       // with an <img> tag, and browsers attach cached Basic credentials to it.
       if (request.method !== 'POST') return json({ error: 'Use POST' }, 405);
@@ -399,13 +466,13 @@ export default {
     // one get() of one key: see FEED_KEY. The opener's IP is left out, since a
     // desktop notification has no use for it.
     if (url.pathname === '/feed') {
-      if (!checkAuth(request, env)) return requireAuth(env, CORS_HEADERS);
+      { const denied = await gate(request, env, url, { cors: true }); if (denied) return denied; }
       return json({ opens: (await env.TRACKER.get(FEED_KEY, 'json')) || [] });
     }
 
     // GET /list — JSON API for extension
     if (url.pathname === '/list') {
-      if (!checkAuth(request, env)) return requireAuth(env, CORS_HEADERS);
+      { const denied = await gate(request, env, url, { cors: true }); if (denied) return denied; }
 
       const trackers = await listTrackers(env);
       return json(trackers.map(t => ({
@@ -418,7 +485,7 @@ export default {
 
     // DELETE /d/:id — delete a tracking pixel
     if (url.pathname.startsWith('/d/')) {
-      if (!checkAuth(request, env)) return requireAuth(env, CORS_HEADERS);
+      { const denied = await gate(request, env, url, { cors: true }); if (denied) return denied; }
       // Was a GET: <img src="https://tracker/d/:id"> on any page deleted a
       // tracker, since the browser attached the owner's cached credentials.
       if (request.method !== 'DELETE') return json({ error: 'Use DELETE' }, 405);
@@ -431,14 +498,14 @@ export default {
     // GET /connect — the code that connects the extension. It contains the password, so it needs
     // the password to see, and it must never be cached.
     if (url.pathname === '/connect' && request.method === 'GET') {
-      if (!checkAuth(request, env)) return requireAuth(env);
+      { const denied = await gate(request, env, url, { page: true }); if (denied) return denied; }
       const nonce = crypto.randomUUID();
       return html(renderConnect(encodeConnectionCode(url.origin, env.DASHBOARD_PASSWORD), nonce), nonce, { 'Cache-Control': 'no-store' });
     }
 
     // GET / — dashboard
     if (url.pathname === '/') {
-      if (!checkAuth(request, env)) return requireAuth(env);
+      { const denied = await gate(request, env, url, { page: true }); if (denied) return denied; }
 
       const results = (await listTrackers(env)).map(t => ({
         id: t.id, email: t.recipient || t.id,

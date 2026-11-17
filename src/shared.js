@@ -69,7 +69,7 @@ export function isBot(userAgent) {
 
 // Length is not hidden, only the contents. Good enough for a shared password
 // over the public internet, where network jitter dwarfs the comparison itself.
-function constantTimeEqual(a, b) {
+export function constantTimeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -200,7 +200,7 @@ export function jsonForScript(value) {
 // Nonce-based CSP: the dashboard and detail pages carry one inline <script> each.
 // Inline style="" attributes are used throughout the markup, so style-src stays
 // 'unsafe-inline' — a nonce there would silently break the layout.
-function csp(nonce) {
+function csp(nonce, formAction = false) {
   return [
     "default-src 'none'",
     `script-src 'nonce-${nonce}'`,
@@ -208,17 +208,18 @@ function csp(nonce) {
     "img-src 'self' data:",
     "connect-src 'self'",
     "base-uri 'none'",
-    "form-action 'none'",
+    `form-action ${formAction ? "'self'" : "'none'"}`,
     "frame-ancestors 'none'",
   ].join('; ');
 }
 
-export function html(content, nonce, extraHeaders = {}) {
+export function html(content, nonce, extraHeaders = {}, { status = 200, formAction = false } = {}) {
   return new Response(content, {
+    status,
     headers: {
       ...extraHeaders,
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Security-Policy': csp(nonce),
+      'Content-Security-Policy': csp(nonce, formAction),
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
     },

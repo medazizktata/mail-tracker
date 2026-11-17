@@ -59,7 +59,13 @@ State-changing routes reject GET on purpose: a GET can be fired cross-site from
 an `<img>` tag, which carries the browser's cached Basic credentials.
 
 Auth uses HTTP Basic with the `DASHBOARD_PASSWORD` secret, compared in constant
-time and split on the first colon only. **If unset, every route is refused with
+time and split on the first colon only. Browsers get a sign-in page instead of the native prompt: a page
+navigation without credentials is redirected to `/login`, and a correct password sets a signed session
+cookie (`src/session.js`: expiry plus an HMAC keyed by the password, so no KV state and a password change
+signs everyone out; KV sessions would bounce users right after sign-in because KV reads can lag). API calls
+without credentials still get the plain 401 + Basic challenge, never a redirect. A cookie-authenticated write
+must carry this site's Origin (the extension uses Basic, so it is not affected). `next` may only be `/`,
+`/connect` or `/s/<id>`: see `safeNext`. Only `/login` allows a form post in its CSP. **If unset, every route is refused with
 a 503** — the worker never runs unprotected.
 
 The `scheduled()` handler drains queued webhooks and needs the `[triggers]` cron

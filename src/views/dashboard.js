@@ -72,6 +72,7 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
   <div class="top-bar">
     <div class="brand">${LOGO_SVG} Mail Tracker</div>
     <a href="/connect" style="color:#a1a1aa;font-size:0.8rem;margin-right:14px;text-decoration:none">Connect extension</a>
+    <button type="button" id="signOut" style="background:none;border:0;color:#a1a1aa;font:inherit;font-size:0.8rem;margin-right:14px;cursor:pointer">Sign out</button>
     <button class="new-btn" id="newBtn">+ New Tracker</button>
   </div>
   <div class="container">
@@ -176,9 +177,10 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
       if (to) body.to = to; if (subject) body.subject = subject;
       var link = document.getElementById('inputLink').value.trim(); if (link) body.links = [link];
       fetch('/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function(r) { return r.json(); })
+      .then(function(r) { if (r.status === 401) { location.href = '/login'; throw new Error('signed out'); } return r.json(); })
       .then(function(data) { if (data.error) { document.getElementById('formError').textContent = data.error; return; } createdPixelHtml = data.html; var tracked = data.links && data.links[0] ? data.links[0].tracked : ''; createdLink = tracked; document.getElementById('resultLink').textContent = tracked; document.getElementById('resultLinkWrap').style.display = tracked ? '' : 'none'; if (link && !tracked) { document.getElementById('formError').textContent = 'That link was not accepted (only http and https links).'; return; } document.getElementById('resultHtml').textContent = data.html; document.getElementById('resultStats').textContent = data.stats; modalForm.style.display = 'none'; modalResult.style.display = ''; });
     });
+    document.getElementById('signOut').addEventListener('click', function() { fetch('/logout', { method: 'POST' }).then(function() { location.href = '/login'; }); });
     document.getElementById('copyLinkBtn').addEventListener('click', function() { navigator.clipboard.writeText(createdLink).then(function() { var b = document.getElementById('copyLinkBtn'); b.textContent = 'Copied!'; setTimeout(function() { b.textContent = 'Copy Tracked Link'; }, 1500); }); });
     document.getElementById('copyHtmlBtn').addEventListener('click', function() { navigator.clipboard.writeText(createdPixelHtml).then(function() { var btn = document.getElementById('copyHtmlBtn'); btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy Pixel HTML'; }, 1500); }); });
   </script>

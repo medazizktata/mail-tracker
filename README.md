@@ -150,8 +150,11 @@ wrangler.toml             KV binding and cron trigger
 
 ## API
 
-Every route except `/t/:id` uses HTTP Basic auth. The username is ignored; only the
-password matters, and it may contain colons.
+Every route except `/t/:id` and `/c/:id/:n` needs the password. Scripts and the extension send it
+as HTTP Basic auth: the username is ignored, only the password matters, and it may contain colons.
+In a browser, opening the dashboard shows a sign-in page (`/login`); after you sign in, a cookie
+(HttpOnly, SameSite=Strict, 14 days) keeps you in, and "Sign out" on the dashboard clears it. Changing
+`DASHBOARD_PASSWORD` signs every browser out.
 
 | Endpoint | Auth | Description |
 |---|:---:|---|

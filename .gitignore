@@ -10,3 +10,7 @@ dist/
 e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
+
+# personal deploy configs (they hold account and KV ids): wrangler.<name>.toml
+wrangler.*.toml
+!wrangler.example.toml

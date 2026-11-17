@@ -10,6 +10,8 @@ Self-hosted email open tracking. Install in five minutes, runs free on Cloudflar
 
 [繁體中文](README.md) | **English**
 
+> Modified version of the original project. See [NOTICE.md](NOTICE.md) for provenance and what changed.
+
 </div>
 
 ## Overview

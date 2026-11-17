@@ -1,11 +1,16 @@
-name = "email-tracker-xinshoutw"
+# TEMPLATE. This file is read by `wrangler` and by Workers Builds, so it must not name anyone's
+# account. Fill in your own values, or keep your real config out of git as wrangler.<name>.toml
+# (see .gitignore) and deploy with:  pnpm exec wrangler deploy -c wrangler.<name>.toml
+#
+# Create the KV namespace first:  pnpm exec wrangler kv namespace create mailpixel-tracker
+name = "mail-tracker"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
-account_id = "a4115182ce1be41e47fe040e51476a53"
+# account_id = "<your Cloudflare account id>"   # only needed if your login spans several accounts
 
 [[kv_namespaces]]
 binding = "TRACKER"
-id = "401b91f449a84845bf61839f20078519"  # namespace title: email-tracker-xinshoutw
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 
 # Drains queued webhooks a short delay after each open, so a self-view has time
 # to be reclassified first. Without this trigger the scheduled() handler never

@@ -287,5 +287,11 @@
   },
   "badCode": {
     "message": "Ce code de connexion n'est pas valide. Copiez-le de nouveau depuis la page /connect de votre worker."
+  },
+  "appleMpp": {
+    "message": "Préchargement Apple Mail"
+  },
+  "reasonNoHtmlBody": {
+    "message": "aucun corps HTML trouvé, le mode texte brut de Gmail est-il activé ?"
   }
 }

@@ -1,4 +1,4 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -193,6 +193,17 @@ export default {
         if (existing.filteredEvents.length > 20) existing.filteredEvents = existing.filteredEvents.slice(-20);
         await putTracker(env, id, existing);
         console.log(`[open] id=${id} SKIPPED reason=sender_ip ip=${ip}`);
+        return servePixel();
+      }
+
+      // Filter 1b: Apple Mail Privacy Protection. Its proxy loads the image at delivery, not at reading,
+      // so the hit is filed, not counted. COUNT_APPLE_PREFETCH=1 counts it anyway.
+      if (!env.COUNT_APPLE_PREFETCH && isApplePrefetch(ip)) {
+        if (isRepeatHit(existing.filteredEvents || [], ip, nowMs)) return servePixel();
+        existing.skipped = (existing.skipped || 0) + 1;
+        existing.filteredEvents = [...(existing.filteredEvents || []), { time: now, ip, userAgent, reason: 'apple_mpp' }].slice(-20);
+        await putTracker(env, id, existing);
+        console.log(`[open] id=${id} SKIPPED reason=apple_mpp ip=${ip}`);
         return servePixel();
       }
 

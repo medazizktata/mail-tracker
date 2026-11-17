@@ -105,3 +105,19 @@ describe('indicatorRetryDelay: draw the Sent ticks again until the Sent rows are
     assert.equal(indicatorRetryDelay(0, undefined), null);
   });
 });
+
+describe('pixelBlocker: why a message cannot carry a pixel', () => {
+  const { pixelBlocker } = globalThis.MailTrackerLogic;
+
+  test('no HTML body found: Gmail\'s plain-text mode has none', () => {
+    assert.equal(pixelBlocker({ bodyCount: 0, bodyTag: undefined }), 'no-body');
+  });
+  test('a plain textarea cannot hold an image either', () => {
+    assert.equal(pixelBlocker({ bodyCount: 1, bodyTag: 'TEXTAREA' }), 'plain-text');
+    assert.equal(pixelBlocker({ bodyCount: 1, bodyTag: 'textarea' }), 'plain-text');
+  });
+  test('a normal editable body is fine', () => {
+    assert.equal(pixelBlocker({ bodyCount: 1, bodyTag: 'DIV' }), null);
+    assert.equal(pixelBlocker({ bodyCount: 2, bodyTag: 'DIV' }), null);
+  });
+});

@@ -287,5 +287,11 @@
   },
   "badCode": {
     "message": "That connection code is not valid. Copy it again from your worker's /connect page."
+  },
+  "appleMpp": {
+    "message": "Apple Mail prefetch"
+  },
+  "reasonNoHtmlBody": {
+    "message": "no HTML body found, is Gmail's plain-text mode on?"
   }
 }

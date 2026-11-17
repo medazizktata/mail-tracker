@@ -603,3 +603,60 @@ describe('/connect: the code that connects the extension', () => {
     assert.notEqual(res.status, 200);
   });
 });
+
+// ------------------------------------------------- Apple Mail prefetch --
+
+describe('Apple Mail Privacy Protection hits are filed, not counted', () => {
+  const APPLE = '17.58.63.12';
+
+  test('a hit from Apple\'s proxy is not an open', async () => {
+    const id = await createTracker();
+    await openPixel(id, { ip: APPLE });
+    const d = await read(id);
+    assert.equal(d.opens, 0);
+    assert.equal(d.skipped, 1);
+    assert.equal(d.filteredEvents.at(-1).reason, 'apple_mpp');
+  });
+
+  test('an address that only looks similar is still a real open', async () => {
+    for (const ip of ['170.1.2.3', '117.5.5.5', '172.16.0.4']) {
+      const id = await createTracker();
+      await openPixel(id, { ip });
+      assert.equal((await read(id)).opens, 1, ip);
+    }
+  });
+
+  test('a real open after the prefetch still counts', async () => {
+    const id = await createTracker();
+    await openPixel(id, { ip: APPLE });
+    await openPixel(id, { ip: OPENER_IP });
+    const d = await read(id);
+    assert.equal(d.opens, 1);
+    assert.equal(d.skipped, 1);
+  });
+
+  test('a burst of prefetch hits from one address is written once', async () => {
+    const id = await createTracker();
+    for (let i = 0; i < 5; i++) await openPixel(id, { ip: APPLE });
+    assert.equal((await read(id)).filteredEvents.length, 1);
+  });
+
+  test('COUNT_APPLE_PREFETCH=1 counts them, for people who prefer that', async () => {
+    env.COUNT_APPLE_PREFETCH = '1';
+    const id = await createTracker();
+    await openPixel(id, { ip: APPLE });
+    assert.equal((await read(id)).opens, 1);
+  });
+});
+
+describe('the pixel response is as uncacheable as we can make it', () => {
+  test('no-store everywhere a cache might look', async () => {
+    const id = await createTracker();
+    const res = await openPixel(id);
+    assert.match(res.headers.get('Cache-Control'), /no-store/);
+    assert.match(res.headers.get('Cache-Control'), /max-age=0/);
+    assert.equal(res.headers.get('Expires'), '0');
+    assert.equal(res.headers.get('Surrogate-Control'), 'no-store');
+    assert.equal(res.headers.get('Pragma'), 'no-cache');
+  });
+});

@@ -343,6 +343,9 @@
     isSending = true;
     const form = findComposeForm(sendButton);
     const bodies = findComposeBodies().filter(b => !form || findComposeForm(b) === form);
+    if (MailTrackerLogic.pixelBlocker({ bodyCount: bodies.length, bodyTag: bodies[0] && bodies[0].tagName })) {
+      showTrackingFailure(t('reasonNoHtmlBody'));
+    }
 
     // Whatever happens to the pixel, the mail still has to go out.
     try {

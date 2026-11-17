@@ -493,10 +493,11 @@ function renderEventList(container, events, isFiltered) {
     if (isFiltered) {
       const label = document.createElement('span');
       const isSelf = e.reason === 'self_view' || e.reason === 'sender_ip';
+      const isApple = e.reason === 'apple_mpp';
       label.style.cssText = isSelf
         ? 'color:#fb923c;font-size:10px;margin-left:6px;'
-        : 'color:#ef4444;font-size:10px;margin-left:6px;';
-      label.textContent = isSelf ? t('selfOpen') : t('botProxy');
+        : isApple ? 'color:#9ca3af;font-size:10px;margin-left:6px;' : 'color:#ef4444;font-size:10px;margin-left:6px;';
+      label.textContent = isSelf ? t('selfOpen') : isApple ? t('appleMpp') : t('botProxy');
       timeDiv.appendChild(label);
     }
 

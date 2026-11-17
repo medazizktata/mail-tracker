@@ -39,5 +39,13 @@
     return attempt < MAX_INDICATOR_ATTEMPTS ? INDICATOR_RETRY_MS : null;
   }
 
-  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay };
+  // Why a message cannot carry a pixel, or null. Gmail's plain-text mode has no HTML body to put one in;
+  // without this the content script finds no body and the mail goes out untracked, saying nothing.
+  function pixelBlocker({ bodyCount, bodyTag }) {
+    if (!bodyCount) return 'no-body';
+    if (String(bodyTag).toUpperCase() === 'TEXTAREA') return 'plain-text';
+    return null;
+  }
+
+  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay, pixelBlocker };
 })(globalThis);

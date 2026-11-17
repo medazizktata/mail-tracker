@@ -137,12 +137,24 @@ export function encodeConnectionCode(origin, password) {
   return 'mt1.' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// Apple Mail Privacy Protection fetches every image through Apple's proxy when a mail is DELIVERED,
+// whether or not anyone reads it, so such a hit says nothing about an open. The IPv4 block is Apple's
+// own 17.0.0.0/8; the IPv6 block (2620:149::/32) is from memory and has not been checked.
+export function isApplePrefetch(ip) {
+  const s = String(ip || '').toLowerCase();
+  const v4 = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) return v4.slice(1).every(n => Number(n) <= 255) && Number(v4[1]) === 17;
+  return s.startsWith('2620:149:') || s.startsWith('2620:0149:');
+}
+
 export function servePixel() {
   return new Response(PIXEL, {
     headers: {
       'Content-Type': 'image/png',
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
       'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
     },
   });
 }

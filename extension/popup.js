@@ -20,7 +20,8 @@ function esc(str) {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', async () => {
-  const { serverUrl: saved, dashboardPassword: savedPass, authFailed: savedAuthFailed } = await chrome.storage.sync.get(['serverUrl', 'dashboardPassword', 'authFailed']);
+  const { serverUrl: saved, authFailed: savedAuthFailed } = await chrome.storage.sync.get(['serverUrl', 'authFailed']);
+  const { dashboardPassword: savedPass } = await chrome.storage.local.get(['dashboardPassword']);
   serverUrl = saved || '';
   dashboardPassword = savedPass || '';
   authFailed = savedAuthFailed || false;
@@ -114,7 +115,8 @@ async function api(path, options = {}) {
       // Authentication failed - clear stored password and show setup
       authFailed = true;
       dashboardPassword = ''; // Clear in memory
-      await chrome.storage.sync.set({ authFailed: true, dashboardPassword: '' });
+      await chrome.storage.sync.set({ authFailed: true });
+      await chrome.storage.local.set({ dashboardPassword: '' });
       showSetup(false);
       throw new Error('Authentication required');
     }
@@ -375,6 +377,15 @@ async function saveSettings() {
     return;
   }
 
+  let parsed;
+  try { parsed = new URL(input); } catch { parsed = null; }
+  if (!parsed || (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(parsed.hostname))) {
+    errorEl.textContent = 'Use a full https:// URL (Gmail blocks plain http, and the password would travel in clear)';
+    errorEl.style.display = 'block';
+    errorEl.style.color = '#ef4444';
+    return;
+  }
+
   // Test connection
   errorEl.textContent = 'Connecting...';
   errorEl.style.display = 'block';
@@ -397,7 +408,8 @@ async function saveSettings() {
   serverUrl = input;
   dashboardPassword = passwordInput;
   authFailed = false;
-  await chrome.storage.sync.set({ serverUrl: input, dashboardPassword: passwordInput, authFailed: false });
+  await chrome.storage.sync.set({ serverUrl: input, authFailed: false });
+  await chrome.storage.local.set({ dashboardPassword: passwordInput });
   
   // Clear temp storage after successful save
   await chrome.storage.local.remove(['tempServerUrl', 'tempPassword']);  // tempPassword: clear any left by an older build

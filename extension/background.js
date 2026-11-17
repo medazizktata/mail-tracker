@@ -3,7 +3,8 @@
 const POLL_TIMEOUT_MS = 10_000; // a hung fetch would keep the service worker pinned alive
 
 async function getServerUrl() {
-  const { serverUrl, dashboardPassword } = await chrome.storage.sync.get(['serverUrl', 'dashboardPassword']);
+  const { serverUrl } = await chrome.storage.sync.get(['serverUrl']);
+  const { dashboardPassword } = await chrome.storage.local.get(['dashboardPassword']);
   return { serverUrl: serverUrl || '', password: dashboardPassword || '' };
 }
 

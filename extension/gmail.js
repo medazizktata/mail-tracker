@@ -69,12 +69,14 @@
   }
 
   // Load settings
-  chrome.storage.sync.get(['serverUrl', 'autoTrack', 'dashboardPassword'], (result) => {
+  chrome.storage.sync.get(['serverUrl', 'autoTrack'], (result) => {
     serverUrl = result.serverUrl || '';
-    dashboardPassword = result.dashboardPassword || '';
     trackingEnabled = result.autoTrack !== false;
     console.log(LOG, 'Loaded settings:', { serverUrl: serverUrl ? 'set' : 'empty', trackingEnabled });
   });
+
+  // The password stays in this browser: storage.sync would copy it to every Chrome signed in to the account.
+  chrome.storage.local.get(['dashboardPassword'], (r) => { dashboardPassword = r.dashboardPassword || ''; });
 
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.serverUrl) serverUrl = changes.serverUrl.newValue || '';
@@ -139,18 +141,24 @@
       .filter(el => el.closest('[role="dialog"]') || el.closest('.nH'));
   }
 
-  // Check which recipients don't have tracking pixels yet
-  function getUntrackedRecipients(bodyEl, recipients) {
-    const existing = Array.from(bodyEl.querySelectorAll('img[data-mail-tracker-to]'))
-      .map(img => img.getAttribute('data-mail-tracker-to'));
-    return recipients.filter(email => !existing.includes(email));
-  }
-
   // A hung worker used to swallow the click outright: Send was cancelled and the
   // replacement click only fired once the fetch settled, which never happened.
   const NEW_PIXEL_TIMEOUT_MS = 3000;
 
-  // Inject tracking pixel into a compose body for given recipients
+  // A mail that leaves untracked looks exactly like a mail nobody has opened, so say so.
+  function showTrackingFailure(reason) {
+    console.warn(LOG, 'Not tracked:', reason);
+    const el = document.createElement('div');
+    el.textContent = 'Mail Tracker: this message was sent WITHOUT tracking (' + reason + ')';
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;'
+      + 'background:#b91c1c;color:#fff;padding:10px 16px;border-radius:8px;font:13px sans-serif;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,.4)';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 10000);
+  }
+
+  // One pixel per message. Gmail sends one body to every recipient, so a pixel per
+  // recipient would fire for all of them and each tracker would count everyone's opens.
   async function injectTracker(bodyEl, recipients) {
     if (!serverUrl || recipients.length === 0) return;
 
@@ -163,44 +171,34 @@
     const headers = { 'Content-Type': 'application/json' };
     if (dashboardPassword) headers['Authorization'] = 'Basic ' + btoa(':' + dashboardPassword);
 
-    // In parallel, so one slow recipient does not add its timeout to the rest.
-    const created = await Promise.all(recipients.map(async (recipient) => {
-      const messageId = Date.now() + '-' + Math.random().toString(36).slice(2, 11);
-      try {
-        const res = await fetch(`${serverUrl}/new`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            to: recipient,
-            subject: emailContent.subject,
-            bodyPreview: emailContent.bodyPreview,
-            messageId,
-          }),
-          signal: AbortSignal.timeout(NEW_PIXEL_TIMEOUT_MS),
-        });
-        if (!res.ok) {
-          console.warn(LOG, 'Failed to create tracker for', recipient, '- status:', res.status);
-          return null;
-        }
-        return { data: await res.json(), recipient, messageId };
-      } catch (e) {
-        console.warn(LOG, 'Error creating tracker for', recipient, e.message);
-        return null;
-      }
-    }));
-
-    for (const { data, recipient, messageId } of created.filter(Boolean)) {
-      const img = document.createElement('img');
-      img.src = data.pixel;
-      img.width = 1;
-      img.height = 1;
-      img.style.cssText = 'display:none!important;width:1px!important;height:1px!important;opacity:0!important;position:absolute!important;';
-      img.setAttribute('data-mail-tracker', data.id);
-      img.setAttribute('data-mail-tracker-to', recipient);
-      img.setAttribute('data-message-id', messageId);
-      contentArea.appendChild(img);
-      console.log(LOG, 'Injected tracker for', recipient, '- id:', data.id);
+    let res;
+    try {
+      res = await fetch(`${serverUrl}/new`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          to: recipients.join(', '),
+          subject: emailContent.subject,
+          bodyPreview: emailContent.bodyPreview,
+          messageId: Date.now() + '-' + Math.random().toString(36).slice(2, 11),
+        }),
+        signal: AbortSignal.timeout(NEW_PIXEL_TIMEOUT_MS),
+      });
+    } catch (e) {
+      return showTrackingFailure(e.name === 'TimeoutError' ? 'server too slow' : 'server unreachable');
     }
+    if (!res.ok) return showTrackingFailure('server answered ' + res.status);
+    const data = await res.json();
+
+    const img = document.createElement('img');
+    img.src = data.pixel;
+    img.width = 1;
+    img.height = 1;
+    img.style.cssText = 'display:none!important;width:1px!important;height:1px!important;opacity:0!important;position:absolute!important;';
+    // The id only: an address in the sent HTML would be readable by every recipient.
+    img.setAttribute('data-mail-tracker', data.id);
+    contentArea.appendChild(img);
+    console.log(LOG, 'Injected tracker', data.id, 'for', recipients.length, 'recipient(s)');
   }
 
   // Read receipts are drawn rather than typed: the check glyphs rendered
@@ -246,7 +244,7 @@
   function findMatchingTracker(trackers, email, identifiers) {
     // First try exact subject + recipient match
     let matches = trackers.filter(t => 
-      t.recipient === email && 
+      (t.recipient || '').split(', ').includes(email) && 
       t.subject && 
       identifiers.subject.includes(t.subject)
     );
@@ -259,7 +257,7 @@
     }
     
     // Fallback to any tracker for this recipient (most recent)
-    matches = trackers.filter(t => t.recipient === email);
+    matches = trackers.filter(t => (t.recipient || '').split(', ').includes(email));
     if (matches.length > 0) {
       return matches.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
     }
@@ -277,45 +275,63 @@
     const recipients = getRecipients(form);
     if (recipients.length === 0) return;
 
-    const untracked = getUntrackedRecipients(bodyEl, recipients);
-    if (untracked.length === 0) return;
+    if (bodyEl.querySelector('img[data-mail-tracker]')) return; // already tracked
 
-    console.log(LOG, 'Found untracked recipients:', untracked);
-    await injectTracker(bodyEl, untracked);
+    await injectTracker(bodyEl, recipients);
   }
 
-  // Watch for Send button clicks — block send, inject pixels, then allow send
+  const SEND_SELECTOR = 'div[role="button"][aria-label*="Send"], div[role="button"][data-tooltip*="Send"]';
   let isSending = false; // Flag to prevent infinite loop
-  
+
+  // Track the compose being sent (not every open compose or draft), then send it.
+  async function trackThenSend(sendButton) {
+    isSending = true;
+    const form = findComposeForm(sendButton);
+    const bodies = findComposeBodies().filter(b => !form || findComposeForm(b) === form);
+
+    // Whatever happens to the pixel, the mail still has to go out.
+    try {
+      for (const body of bodies) await processCompose(body);
+    } catch (err) {
+      showTrackingFailure(err.message);
+    }
+
+    setTimeout(() => {
+      sendButton.click();
+      setTimeout(() => { isSending = false; }, 1000);
+    }, 100);
+  }
+
   function setupSendInterception() {
-    document.addEventListener('click', async (e) => {
-      if (!trackingEnabled || !serverUrl) return;
-      if (isSending) return; // Skip if already sending
-
-      const target = e.target.closest(
-        'div[role="button"][aria-label*="Send"], ' +
-        'div[role="button"][data-tooltip*="Send"]'
-      );
-
+    document.addEventListener('click', (e) => {
+      if (!trackingEnabled || !serverUrl || isSending) return;
+      const target = e.target.closest(SEND_SELECTOR);
       if (!target) return;
 
       console.log(LOG, 'Send button clicked - checking for untracked recipients');
       e.stopPropagation();
       e.preventDefault();
-      isSending = true;
+      trackThenSend(target);
+    }, true); // Use capture phase to intercept before Gmail
 
-      // Whatever happens to the pixels, the mail still has to go out.
-      try {
-        for (const body of findComposeBodies()) await processCompose(body);
-      } catch (err) {
-        console.warn(LOG, 'Pixel injection failed, sending anyway:', err.message);
+    // Ctrl/Cmd+Enter sends without a click, which used to skip tracking silently.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return;
+      if (!trackingEnabled || !serverUrl || isSending) return;
+      // Compose windows are dialogs. The looser findComposeForm() fallback can match
+      // the whole page, and Ctrl+Enter in the search box must never send a draft.
+      const dialog = e.target.closest('[role="dialog"]');
+      const button = dialog && dialog.querySelector(SEND_SELECTOR);
+      if (!button) {
+        // Typing in an inline reply: Gmail will send it, and we cannot track it from here.
+        if (e.target.closest('[contenteditable="true"]')) showTrackingFailure("Ctrl+Enter in an inline reply is not tracked, use the Send button");
+        return;
       }
 
-      setTimeout(() => {
-        target.click();
-        setTimeout(() => { isSending = false; }, 1000);
-      }, 100);
-    }, true); // Use capture phase to intercept before Gmail
+      e.stopPropagation();
+      e.preventDefault();
+      trackThenSend(button);
+    }, true);
   }
 
   // Add read indicators to sent emails in inbox view

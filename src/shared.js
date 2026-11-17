@@ -127,6 +127,16 @@ export function putTracker(env, id, data) {
   return env.TRACKER.put(id, JSON.stringify(data), { metadata: trackerMeta(data), expirationTtl: TRACKER_TTL_S });
 }
 
+// The code the extension takes in one paste: the worker's origin and password. The /connect page
+// shows it to someone who already knows the password. Decoded, and strictly validated, by
+// extension/connection-code.js; test/connection-code.test.js keeps the two in step.
+export function encodeConnectionCode(origin, password) {
+  const bytes = new TextEncoder().encode(JSON.stringify({ u: origin, p: password }));
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return 'mt1.' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 export function servePixel() {
   return new Response(PIXEL, {
     headers: {
@@ -163,9 +173,10 @@ function csp(nonce) {
   ].join('; ');
 }
 
-export function html(content, nonce) {
+export function html(content, nonce, extraHeaders = {}) {
   return new Response(content, {
     headers: {
+      ...extraHeaders,
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Security-Policy': csp(nonce),
       'X-Content-Type-Options': 'nosniff',

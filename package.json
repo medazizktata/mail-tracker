@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --test"
+    "test": "node --test",
+    "setup": "node scripts/setup.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.135.0"
@@ -17,5 +18,12 @@
       "esbuild",
       "workerd"
     ]
+  },
+  "cloudflare": {
+    "bindings": {
+      "DASHBOARD_PASSWORD": {
+        "description": "Choose a long random password. It protects your dashboard and your tracking data. When the deploy finishes, open `/connect` on your new worker to get one code that connects the browser extension."
+      }
+    }
   }
 }

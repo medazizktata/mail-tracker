@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import worker from '../src/index.js';
 import { fakeKV } from '../support/fake-kv.js';
+import { encodeConnectionCode } from '../src/shared.js';
 import { checkAuth, esc, isBot, jsonForScript, trackerMeta, MAX_HITS_PER_TRACKER } from '../src/shared.js';
 import { renderDetail } from '../src/views/detail.js';
 import { renderDashboard } from '../src/views/dashboard.js';
@@ -564,5 +565,41 @@ describe('/self writes only when it changes something', () => {
     const body = await (await callSelf('nope')).json();
     assert.equal(body.results[0].status, 'not_found');
     assert.equal(env.TRACKER.ops.put, before);
+  });
+});
+
+// ---------------------------------------------------------------- /connect --
+
+describe('/connect: the code that connects the extension', () => {
+  test('needs the password like every other page', async () => {
+    const res = await worker.fetch(req('/connect', { auth: false }), env);
+    assert.equal(res.status, 401);
+  });
+
+  test('an unconfigured worker refuses it instead of showing anything', async () => {
+    const res = await worker.fetch(req('/connect', { auth: false }), { TRACKER: env.TRACKER });
+    assert.equal(res.status, 503);
+  });
+
+  test('shows a code for this worker and this password, and the page is not cached', async () => {
+    const res = await worker.fetch(req('/connect'), env);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('Content-Type'), /text\/html/);
+    assert.match(res.headers.get('Cache-Control'), /no-store/);
+    assert.match(res.headers.get('Content-Security-Policy'), /script-src 'nonce-/);
+    const body = await res.text();
+    const code = body.match(/mt1\.[A-Za-z0-9_-]+/)[0];
+    assert.equal(code, encodeConnectionCode('https://tracker.test', PASSWORD));
+    assert.ok(!body.includes(PASSWORD), 'the password itself must not appear in the page');
+  });
+
+  test('the dashboard links to it', async () => {
+    const body = await (await worker.fetch(req('/'), env)).text();
+    assert.match(body, /href="\/connect"/);
+  });
+
+  test('only GET: it is a page, not an action', async () => {
+    const res = await worker.fetch(req('/connect', { method: 'POST', body: {} }), env);
+    assert.notEqual(res.status, 200);
   });
 });

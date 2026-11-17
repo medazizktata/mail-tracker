@@ -39,10 +39,10 @@
     "message": "Delete tracker"
   },
   "setupPrompt": {
-    "message": "Enter your Mail Tracker server URL (your Cloudflare Worker URL)"
+    "message": "Paste your connection code (from your worker's /connect page) and save. Or enter the worker URL and password."
   },
   "passwordPlaceholder": {
-    "message": "Dashboard password (optional)"
+    "message": "Password (not needed with a connection code)"
   },
   "showPassword": {
     "message": "Show password"
@@ -281,5 +281,11 @@
   },
   "indicatorUnopened": {
     "message": "Sent but not opened yet"
+  },
+  "urlOrCodePlaceholder": {
+    "message": "Connection code, or https://your-worker.workers.dev"
+  },
+  "badCode": {
+    "message": "That connection code is not valid. Copy it again from your worker's /connect page."
   }
 }

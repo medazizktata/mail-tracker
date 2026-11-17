@@ -39,10 +39,10 @@
     "message": "Supprimer ce suivi"
   },
   "setupPrompt": {
-    "message": "Saisissez l'URL de votre serveur Mail Tracker (l'URL de votre Worker Cloudflare)"
+    "message": "Collez votre code de connexion (page /connect de votre worker) puis enregistrez. Ou saisissez l'URL du worker et le mot de passe."
   },
   "passwordPlaceholder": {
-    "message": "Mot de passe du tableau de bord (facultatif)"
+    "message": "Mot de passe (inutile avec un code de connexion)"
   },
   "showPassword": {
     "message": "Afficher le mot de passe"
@@ -281,5 +281,11 @@
   },
   "indicatorUnopened": {
     "message": "Envoyé, pas encore ouvert"
+  },
+  "urlOrCodePlaceholder": {
+    "message": "Code de connexion, ou https://votre-worker.workers.dev"
+  },
+  "badCode": {
+    "message": "Ce code de connexion n'est pas valide. Copiez-le de nouveau depuis la page /connect de votre worker."
   }
 }

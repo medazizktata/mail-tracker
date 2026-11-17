@@ -1,7 +1,8 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
+import { renderConnect } from './views/connect.js';
 
 const SELF_VIEW_WINDOW_MS = 5_000;
 
@@ -337,6 +338,14 @@ export default {
       if (!id || id.startsWith(INTERNAL_PREFIX)) return json({ error: 'Missing id' }, 400);
       await env.TRACKER.delete(id);
       return json({ deleted: id });
+    }
+
+    // GET /connect — the code that connects the extension. It contains the password, so it needs
+    // the password to see, and it must never be cached.
+    if (url.pathname === '/connect' && request.method === 'GET') {
+      if (!checkAuth(request, env)) return requireAuth(env);
+      const nonce = crypto.randomUUID();
+      return html(renderConnect(encodeConnectionCode(url.origin, env.DASHBOARD_PASSWORD), nonce), nonce, { 'Cache-Control': 'no-store' });
     }
 
     // GET / — dashboard

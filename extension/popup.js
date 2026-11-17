@@ -375,9 +375,22 @@ async function deleteCurrentPixel() {
 }
 
 async function saveSettings() {
-  const input = document.getElementById('server-input').value.trim().replace(/\/$/, '');
-  const passwordInput = document.getElementById('password-input').value.trim();
+  let input = document.getElementById('server-input').value.trim().replace(/\/$/, '');
+  let passwordInput = document.getElementById('password-input').value.trim();
   const errorEl = document.getElementById('setup-error');
+
+  // A connection code from the worker's /connect page carries the URL and the password.
+  if (MailTrackerConnect.looksLikeCode(input)) {
+    const parsed = MailTrackerConnect.decode(input);
+    if (!parsed) {
+      errorEl.textContent = t('badCode');
+      errorEl.style.display = 'block';
+      errorEl.style.color = '#ef4444';
+      return;
+    }
+    input = parsed.url;
+    passwordInput = parsed.password;
+  }
 
   if (!input) {
     errorEl.textContent = t('enterUrl');

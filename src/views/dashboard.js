@@ -68,6 +68,7 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
 <body>
   <div class="top-bar">
     <div class="brand">${LOGO_SVG} Mail Tracker</div>
+    <a href="/connect" style="color:#a1a1aa;font-size:0.8rem;margin-right:14px;text-decoration:none">Connect extension</a>
     <button class="new-btn" id="newBtn">+ New Tracker</button>
   </div>
   <div class="container">

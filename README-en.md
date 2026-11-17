@@ -10,7 +10,20 @@ Self-hosted email open tracking. Install in five minutes, runs free on Cloudflar
 
 [繁體中文](README.md) | **English**
 
-> Modified version of the original project. See [NOTICE.md](NOTICE.md) for provenance and what changed.
+> Modified version of the original project.
+
+## Quick start (no config files)
+
+1. Click **Deploy to Cloudflare**, allow access when Cloudflare asks, and choose a password when it asks for `DASHBOARD_PASSWORD`. Cloudflare copies the project to your GitHub, creates the storage and deploys it to your own account.
+
+   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/medazizktata/mail-tracker)
+
+   Prefer a terminal? `pnpm install && pnpm run setup` does the same: it opens Cloudflare's "allow" screen, deploys, and picks the password for you.
+2. Open `https://<your-worker>.workers.dev/connect`, copy the connection code.
+3. In the extension popup, paste it into the first field and click **Save & Connect**.
+
+That is all. The code carries the worker address and the password, so there is nothing else to type. Not verified here: the Deploy to Cloudflare flow itself was not clicked through (it needs your GitHub and Cloudflare logins); `pnpm run setup` was run against a real account.
+ See [NOTICE.md](NOTICE.md) for provenance and what changed.
 
 </div>
 

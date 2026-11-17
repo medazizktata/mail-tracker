@@ -191,21 +191,34 @@ curl -u :your-password -X DELETE https://your-worker.workers.dev/d/THE_ID
 
 <br/>
 
-## Limitations
+## Limitations, and what this tracker does about each
 
-Pixel tracking is inference, not certainty. It fails in ways worth knowing before you
-rely on it:
+Pixel tracking is inference, not certainty. Some limits can be worked around, some only
+softened, and some cannot be fixed by any tracker. This table says which is which.
 
-- **Images disabled** — no pixel load, no signal. Common in corporate Outlook.
-- **Apple Mail Privacy Protection** — iOS 15 and later pre-fetch every image through
-  Apple's proxy, so an open is recorded with Apple's IP rather than the reader's.
-- **Gmail image caching** — Gmail may serve a cached copy, so later opens by the same
-  person can go unrecorded.
-- **Self-open filtering needs the extension** — reading a tracked thread outside Gmail,
-  or without the extension installed, can register as a genuine open.
-- **Plain text** — Gmail's plain text compose mode strips the `<img>`, as does any client
-  that sends plain text only. Gmail sends HTML by default, so this only bites if you
-  switch it on.
+| Limit | What happens | What this tracker does | Status |
+|---|---|---|---|
+| **Images blocked** (common in corporate Outlook) | The pixel never loads, so no open is recorded. | **Click tracking.** A link still works when images do not. Turn on "Track link clicks" in the popup and links in the mails you send are tracked; or make a tracked link in the dashboard for any email. You only see a click if the recipient clicks. | Softened |
+| **Apple Mail Privacy Protection** (iOS 15+, macOS) | Apple's proxy loads every image when the mail is *delivered*, whether or not it is read. | These hits are recognised by Apple's addresses and filed as "Apple Mail prefetch" instead of being counted, so they no longer inflate opens. The cost: a real open by an Apple Mail user is invisible. Set `COUNT_APPLE_PREFETCH=1` on the worker to count them anyway. | Handled (honestly, not defeated) |
+| **Gmail image caching** | Gmail's proxy may serve a cached copy, so a repeat open may not reach the worker. | The pixel is sent with every no-cache header. That is all that can be done, so treat **the first open** as the reliable signal and use clicks for repeat engagement. In one real test a recipient's open arrived six minutes after the sender's own view, so caching did not hide it, but that is one observation, not a guarantee. | Cannot be fixed |
+| **Opening a tracked mail outside the extension** | The extension hides your own views of a sent mail in desktop Gmail. A view on your phone, in another client, or in a browser without the extension looks like a recipient's open. | Your own direct loads from the address you send from are filtered. Install the extension in every browser where you read your sent mail. Views through Gmail's proxy on a device without the extension cannot be told apart. | Not solved |
+| **Gmail plain-text mode** | There is no HTML body to put a pixel in. | A red banner now warns you before you send, instead of sending untracked in silence. Use a tracked link if you need a signal from a plain-text mail. | Warned |
+| **Plain-text clients** (other mail programs) | A pixel needs HTML; the extension only runs in Gmail on the web. | Make a tracked link in the dashboard and paste it into the email, or paste the pixel snippet into any client that sends HTML. | Softened |
+
+### Click tracking, in practice
+
+- Clicks are filed, not counted, when they come from your own address, from a link scanner,
+  or within ten seconds of sending (scanners follow links the moment a mail arrives).
+- A tracked link redirects only to a link you stored. The destination is never read from the
+  request, so it cannot be used as an open redirect.
+- It is **off by default** in the extension. Recipients see your worker's address when they
+  hover a link, and rewritten links can affect deliverability. Turn it on per browser in the popup.
+
+### A note on privacy
+
+Pixels and tracked links record the reader's address, country and mail program. Some
+regulators treat that like a cookie (France's CNIL, according to law-firm summaries that
+were not checked against its text). If you send to people in such places, tell them.
 
 <br/>
 

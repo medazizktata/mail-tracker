@@ -161,6 +161,9 @@ their own thread.
 - Gmail content script (`gmail.js`) hooks Send button to auto-inject tracking pixels
 - Per-recipient tracking: each recipient gets their own pixel ID
 - Background service worker polls `/feed` every 5 minutes for new opens
+- The popup list's arrow opens the mail in Gmail as a search in Sent (recipient + subject): a tracker keeps no
+  Gmail message id. `gmail.js` remembers the sending account per tracker id in `chrome.storage.local`
+  (`gmailAccounts`, latest 500) so the link lands in the right account when several are signed in.
 
 ## Deployment
 

@@ -75,5 +75,26 @@
     return srcs.some(s => re.test(String(s || '')));
   }
 
-  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay, pixelBlocker, collectLinks, hasPixel };
+  // The address Gmail shows in the tab title ("Inbox (3) - me@example.com - Gmail"), so the popup can reopen a
+  // mail in the right account when several are signed in. A pop-out compose window has no such title.
+  function gmailAccount(title) {
+    const m = /[-\u2013]\s*([^\s@]+@[^\s@]+\.[^\s@]+)\s*[-\u2013]\s*Gmail\s*$/.exec(String(title || ''));
+    return m ? m[1] : null;
+  }
+
+  // A tracker keeps no Gmail message id, only recipient and subject, so "open the mail" is a Gmail search
+  // in Sent. The worker stores the subject cut at 80 characters, so drop a word that may be cut in half.
+  const STORED_SUBJECT_LIMIT = 80;
+  function gmailSearchUrl({ account, recipient, subject }) {
+    let words = String(subject || '').replace(/["\\]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    if (String(subject || '').length >= STORED_SUBJECT_LIMIT && words.length > 1) words.pop();
+    const query = ['in:sent'];
+    const to = recipientsOf(recipient)[0];
+    if (to) query.push('to:' + to.replace(/\s/g, ''));
+    if (words.length) query.push('subject:"' + words.join(' ') + '"');
+    return 'https://mail.google.com/mail/' + (account ? '?authuser=' + encodeURIComponent(account) : '') +
+      '#search/' + encodeURIComponent(query.join(' '));
+  }
+
+  root.MailTrackerLogic = { recipientsOf, isSentRow, findMatchingTracker, indicatorRetryDelay, pixelBlocker, collectLinks, hasPixel, gmailAccount, gmailSearchUrl };
 })(globalThis);

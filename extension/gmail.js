@@ -239,6 +239,17 @@
         if (tracked.has(key)) a.href = tracked.get(key);
       }
     }
+    // Which signed-in account sent it, so the popup's "Open in Gmail" lands in the right one.
+    const account = MailTrackerLogic.gmailAccount(document.title);
+    if (account) {
+      chrome.storage.local.get('gmailAccounts', r => {
+        const map = r.gmailAccounts || {};
+        map[data.id] = account;
+        const ids = Object.keys(map); // oldest first; keep the latest 500
+        for (const old of ids.slice(0, Math.max(0, ids.length - 500))) delete map[old];
+        chrome.storage.local.set({ gmailAccounts: map });
+      });
+    }
     console.log(LOG, 'Injected tracker', data.id, 'for', recipients.length, 'recipient(s)');
   }
 

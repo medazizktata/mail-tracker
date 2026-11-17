@@ -305,5 +305,8 @@
   },
   "openDashboard": {
     "message": "Dashboard"
+  },
+  "openInGmail": {
+    "message": "Open in Gmail"
   }
 }

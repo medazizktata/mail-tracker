@@ -59,7 +59,9 @@ describe('extension privilege and data flow', () => {
         assert.match(m[1].trim(), /^`\$\{(serverUrl|input)\}/, `${f}: fetch(${m[1].trim()})`);
       }
       const urls = [...code(f).matchAll(/https?:\/\/[^\s'"`)]+/g)].map(m => m[0]);
-      assert.deepEqual(urls.filter(u => u !== 'http://www.w3.org/2000/svg'), [], `${f} contains a URL literal`);
+      // The one other address: Gmail's own, for the popup's "Open in Gmail" link, built in logic.js only.
+      const allowed = ['http://www.w3.org/2000/svg', ...(f === 'logic.js' ? ['https://mail.google.com/mail/'] : [])];
+      assert.deepEqual(urls.filter(u => !allowed.includes(u)), [], `${f} contains a URL literal`);
     }
   });
 
@@ -109,5 +111,28 @@ describe('the setup view checkbox', () => {
     const popup = read('popup.html');
     assert.match(popup, /<input type="checkbox" id="track-links"[^>]*style="[^"]*width:auto/);
     assert.match(popup, /<label style="[^"]*text-align:left[^"]*">\s*<input type="checkbox" id="track-links"/);
+  });
+});
+
+describe('the popup list can open the mail in Gmail', () => {
+  test('popup.html loads logic.js before popup.js', () => {
+    const html = read('popup.html');
+    assert.ok(html.indexOf('src="logic.js"') > -1 && html.indexOf('src="logic.js"') < html.indexOf('src="popup.js"'));
+  });
+  test('each row carries a new-tab link that does not also open the detail view', () => {
+    const js = code('popup.js');
+    assert.match(js, /MailTrackerLogic\.gmailSearchUrl\(\{ account: gmailAccounts\[p\.id\]/);
+    assert.match(js, /open\.target = '_blank'/);
+    assert.match(js, /open\.rel = 'noopener noreferrer'/);
+    assert.match(js, /open\.addEventListener\('click', e => e\.stopPropagation\(\)\)/);
+  });
+  test('the sender account is remembered per tracker id, capped', () => {
+    const js = code('gmail.js');
+    assert.match(js, /MailTrackerLogic\.gmailAccount\(document\.title\)/);
+    assert.match(js, /map\[data\.id\] = account/);
+    assert.match(js, /ids\.length - 500\b/);
+  });
+  test('the link label exists in both languages', () => {
+    for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).openInGmail?.message, lang);
   });
 });

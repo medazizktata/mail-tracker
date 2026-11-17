@@ -192,3 +192,54 @@ describe('hasPixel: does a message body already carry our pixel', () => {
     assert.equal(hasPixel([`${SERVER}/t/${ID}`], ''), false);
   });
 });
+
+describe('gmailAccount: the signed-in address from the tab title', () => {
+  const { gmailAccount } = globalThis.MailTrackerLogic;
+  test('reads it from English and French titles', () => {
+    assert.equal(gmailAccount('Inbox (3) - me@example.com - Gmail'), 'me@example.com');
+    assert.equal(gmailAccount('Boîte de réception (798) - jane@example.org - Gmail'), 'jane@example.org');
+    assert.equal(gmailAccount('link tracking test 1 - me@example.com - Gmail'), 'me@example.com');
+  });
+  test('returns null when the title has no account (a pop-out window, another page)', () => {
+    assert.equal(gmailAccount('Nouveau message'), null);
+    assert.equal(gmailAccount('Gmail'), null);
+    assert.equal(gmailAccount(''), null);
+    assert.equal(gmailAccount(undefined), null);
+  });
+  test('does not take an address that is only part of the subject', () => {
+    assert.equal(gmailAccount('mail to bob@example.com - Gmail'), null);
+    // An address earlier in the title, followed by the word Gmail inside a subject, must not win.
+    assert.equal(gmailAccount('Re: - bob@example.com - Gmail notes - me@example.com - Gmail'), 'me@example.com');
+  });
+});
+
+describe('gmailSearchUrl: reopening a tracked mail from the popup', () => {
+  const { gmailSearchUrl } = globalThis.MailTrackerLogic;
+  const query = url => decodeURIComponent(url.split('#search/')[1]);
+  test('searches Sent for the recipient and subject, in the sending account', () => {
+    const url = gmailSearchUrl({ account: 'me@example.com', recipient: 'bob@example.org', subject: 'Quarterly plan' });
+    assert.ok(url.startsWith('https://mail.google.com/mail/?authuser=me%40example.com#search/'));
+    assert.equal(query(url), 'in:sent to:bob@example.org subject:"Quarterly plan"');
+  });
+  test('without a remembered account it still opens a search, in the default one', () => {
+    const url = gmailSearchUrl({ recipient: 'bob@example.org', subject: 'Hi' });
+    assert.ok(url.startsWith('https://mail.google.com/mail/#search/'));
+    assert.doesNotMatch(url, /authuser/);
+  });
+  test('uses the first of several recipients', () => {
+    assert.equal(query(gmailSearchUrl({ recipient: 'a@x.com, b@y.org', subject: 'S' })), 'in:sent to:a@x.com subject:"S"');
+  });
+  test('quotes and backslashes in a subject cannot break out of the phrase', () => {
+    const q = query(gmailSearchUrl({ recipient: 'a@x.com', subject: 'say "hi" \\ to from:evil@x.com' }));
+    assert.equal(q, 'in:sent to:a@x.com subject:"say hi to from:evil@x.com"');
+  });
+  test('a subject cut at the stored limit loses its last, possibly half, word', () => {
+    const subject = ('word '.repeat(15) + 'trunc').slice(0, 80);
+    assert.equal(subject.length, 80);
+    assert.doesNotMatch(query(gmailSearchUrl({ recipient: 'a@x.com', subject })), /trunc/);
+    assert.match(query(gmailSearchUrl({ recipient: 'a@x.com', subject: 'short subject' })), /short subject/);
+  });
+  test('a tracker with no recipient or subject still gives a Sent search', () => {
+    assert.equal(query(gmailSearchUrl({})), 'in:sent');
+  });
+});

@@ -305,5 +305,8 @@
   },
   "openDashboard": {
     "message": "Tableau de bord"
+  },
+  "openInGmail": {
+    "message": "Ouvrir dans Gmail"
   }
 }

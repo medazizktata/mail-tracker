@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   generatePassword, renderWranglerConfig, parseAccounts, parseKvId, parseWorkerUrl,
-  isNotLoggedIn, validWorkerName, validSubdomain, suggestSubdomain, parseKvList,
+  isNotLoggedIn, validWorkerName, validSubdomain, suggestSubdomain, parseKvList, parseToken,
 } from '../scripts/lib.mjs';
 
 // Outputs copied from real wrangler 4.135.0 runs during this project.
@@ -85,6 +85,18 @@ describe('reading wrangler output', () => {
   test('a missing login is recognised', () => {
     assert.equal(isNotLoggedIn('You are not authenticated. Please run `wrangler login`.'), true);
     assert.equal(isNotLoggedIn(WHOAMI), false);
+  });
+});
+
+describe('reading the token from `wrangler auth token`', () => {
+  const TOKEN = 'abcdEFGH1234_-.ijklMNOP5678qrstUVWX9012yz';
+  test('picks the token line, not a banner or a trailing status line', () => {
+    assert.equal(parseToken(` ⛅️ wrangler 4.135.0\n${TOKEN}\n\nDone in 2.1s using pnpm v12.9.1\n`), TOKEN);
+  });
+  test('works when the token is the only output', () => assert.equal(parseToken(`${TOKEN}\n`), TOKEN));
+  test('nothing token-shaped gives null', () => {
+    assert.equal(parseToken('Done in 2.1s using pnpm v12.9.1'), null);
+    assert.equal(parseToken(''), null);
   });
 });
 

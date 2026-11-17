@@ -70,3 +70,10 @@ id = "${kvId}"
 crons = ["* * * * *"]
 `;
 }
+
+// `wrangler auth token` prints the token on a line of its own, among banner and status lines
+// (including a "Done in 2s" line when run through pnpm). Take the last token-shaped line.
+export function parseToken(text) {
+  const lines = String(text).split('\n').map(l => l.trim()).filter(l => /^[A-Za-z0-9._~+/=-]{20,}$/.test(l));
+  return lines.length ? lines[lines.length - 1] : null;
+}

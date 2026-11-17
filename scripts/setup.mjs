@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import { encodeConnectionCode } from '../src/shared.js';
 import {
-  generatePassword, isNotLoggedIn, parseAccounts, parseKvId, parseKvList, parseWorkerUrl,
+  generatePassword, isNotLoggedIn, parseAccounts, parseKvId, parseKvList, parseToken, parseWorkerUrl,
   renderWranglerConfig, suggestSubdomain, validSubdomain, validWorkerName,
 } from './lib.mjs';
 
@@ -59,7 +59,7 @@ function wrangler(wargs, { input, env, inherit } = {}) {
     cwd: ROOT, encoding: 'utf8', input, stdio: inherit ? 'inherit' : 'pipe',
     env: { ...process.env, ...env },
   });
-  return { status: r.status, out: `${r.stdout || ''}${r.stderr || ''}` };
+  return { status: r.status, out: `${r.stdout || ''}${r.stderr || ''}`, stdout: r.stdout || '' };
 }
 
 async function ask(question, fallback) {
@@ -131,7 +131,8 @@ function ensureKv(accountId, state) {
 
 // Never printed or stored: the OAuth token (or CLOUDFLARE_API_TOKEN) is used for these two calls only.
 async function ensureSubdomain(accountId) {
-  const token = process.env.CLOUDFLARE_API_TOKEN || wrangler(['auth', 'token']).out.trim().split('\n').pop().trim();
+  const token = process.env.CLOUDFLARE_API_TOKEN || parseToken(wrangler(['auth', 'token']).stdout);
+  if (!token) die('Could not get a Cloudflare token from your login. Try `wrangler login` again, or set CLOUDFLARE_API_TOKEN.');
   const api = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`;
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const current = await (await fetch(api, { headers })).json();

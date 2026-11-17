@@ -277,14 +277,33 @@ describe('state-changing routes', () => {
     assert.equal(res.status, 400);
   });
 
-  test('/self reclassifies a recent open as a self-view', async () => {
+  // The window is about wall-clock time, so these tests place the open at a known
+  // age instead of relying on how many milliseconds the test run happens to take
+  // (a zero-length window used to pass this test in most runs).
+  async function backdateOpens(id, ageMs) {
+    const data = await read(id);
+    data.events = data.events.map(e => ({ ...e, time: new Date(Date.now() - ageMs).toISOString() }));
+    await env.TRACKER.put(id, JSON.stringify(data));
+  }
+
+  test('/self reclassifies an open from a second ago as a self-view', async () => {
     const id = await createTracker();
     await openPixel(id);
+    await backdateOpens(id, 1_000);
     const res = await worker.fetch(req('/self', { method: 'POST', body: { ids: [id] } }), env);
     assert.equal((await res.json()).totalReclassified, 1);
     const data = await read(id);
     assert.equal(data.opens, 0);
     assert.equal(data.filteredEvents.at(-1).reason, 'self_view');
+  });
+
+  test('/self leaves an older open alone, so a real recipient open is not erased', async () => {
+    const id = await createTracker();
+    await openPixel(id);
+    await backdateOpens(id, 60_000);
+    const res = await worker.fetch(req('/self', { method: 'POST', body: { ids: [id] } }), env);
+    assert.equal((await res.json()).totalReclassified, 0);
+    assert.equal((await read(id)).opens, 1);
   });
 });
 

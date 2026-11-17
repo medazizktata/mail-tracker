@@ -592,7 +592,7 @@
 
   // Initialize tracking
   if (window.location.hostname === 'mail.google.com') {
-    console.log(LOG, 'Initializing...');
+    console.log(LOG, 'Initializing... v' + chrome.runtime.getManifest().version);
     setupSendInterception();
     setInterval(checkSendRecognised, 3000);
 

@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import worker from '../src/index.js';
-import { checkAuth, esc, isBot, jsonForScript, trackerMeta } from '../src/shared.js';
+import { checkAuth, esc, isBot, jsonForScript, trackerMeta, MAX_HITS_PER_TRACKER } from '../src/shared.js';
 import { renderDetail } from '../src/views/detail.js';
 import { renderDashboard } from '../src/views/dashboard.js';
 
@@ -33,7 +33,7 @@ function fakeKV() {
     },
     async put(name, value, opts = {}) {
       ops.put++;
-      store.set(name, { value, metadata: opts.metadata ?? null });
+      store.set(name, { value, metadata: opts.metadata ?? null, ttl: opts.expirationTtl ?? null });
     },
     async delete(name) {
       ops.delete++;
@@ -498,5 +498,41 @@ describe('scheduled webhooks', () => {
     await worker.scheduled({}, env);
     assert.ok(!sent[0].body.text.includes('<!channel>'));
     assert.match(sent[0].body.text, /&lt;!channel&gt;/);
+  });
+});
+
+// ------------------------------------------------------------- hardening --
+
+describe('retention, write bound and multi-recipient trackers', () => {
+  test('a tracker expires, so recipient data is not kept forever', async () => {
+    const id = await createTracker();
+    const ttl = env.TRACKER.store.get(id).ttl;
+    assert.ok(ttl >= 30 * 86400 && ttl <= 365 * 86400, `unexpected ttl ${ttl}`);
+  });
+
+  test('/t/:id stops writing once a tracker has taken its quota of hits', async () => {
+    // The pixel URL is in every sent mail and takes no auth; without a bound,
+    // one holder can spend the whole free KV write budget on a single tracker.
+    const id = await createTracker();
+    const hit = i => openPixel(id, { ip: `10.1.${Math.floor(i / 250)}.${i % 250}` });
+    for (let i = 0; i < MAX_HITS_PER_TRACKER + 20; i++) await hit(i);
+    const data = await read(id);
+    assert.ok(data.opens + data.skipped <= MAX_HITS_PER_TRACKER, 'recorded more hits than the cap');
+    const putsAtCap = env.TRACKER.ops.put;
+    await hit(9999);
+    assert.equal(env.TRACKER.ops.put, putsAtCap, 'wrote to KV after the cap');
+  });
+
+  test('/new takes one tracker for a message with several recipients', async () => {
+    const ok = await worker.fetch(req('/new', { method: 'POST', body: { to: 'a@example.com, b@example.org' } }), env);
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).recipient, 'a@example.com, b@example.org');
+  });
+
+  test('/new rejects a list with a bad entry or an oversized list', async () => {
+    const bad = await worker.fetch(req('/new', { method: 'POST', body: { to: 'a@example.com, nope' } }), env);
+    assert.equal(bad.status, 400);
+    const long = await worker.fetch(req('/new', { method: 'POST', body: { to: Array(40).fill('someone@example.com').join(',') } }), env);
+    assert.equal(long.status, 400);
   });
 });

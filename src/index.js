@@ -1,4 +1,4 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -163,6 +163,10 @@ export default {
       const existing = await env.TRACKER.get(id, 'json');
       if (!existing) return servePixel();
 
+      // Bound the writes an unauthenticated URL can cause. /self moves opens into
+      // skipped, so their sum only ever grows.
+      if ((existing.opens || 0) + (existing.skipped || 0) >= MAX_HITS_PER_TRACKER) return servePixel();
+
       const ip = request.headers.get('cf-connecting-ip') || 'unknown';
       const country = request.headers.get('cf-ipcountry') || 'unknown';
       const userAgent = request.headers.get('user-agent') || 'unknown';
@@ -269,7 +273,13 @@ export default {
         return json({ error: 'Invalid JSON body' }, 400);
       }
 
-      if (recipient && !recipient.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) return json({ error: 'Invalid email format' }, 400);
+      // One pixel per message, so a message to several people is one tracker
+      // labelled with all of them (separate pixels in one body all fire for every
+      // recipient and make each tracker count everyone's opens).
+      const EMAIL = /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/;
+      if (recipient && (recipient.length > 500 || !recipient.split(',').every(a => EMAIL.test(a.trim())))) {
+        return json({ error: 'Invalid email format' }, 400);
+      }
       if (subject.length > 500 || bodyPreview.length > 1000) return json({ error: 'Input too long' }, 400);
 
       await putTracker(env, id, {

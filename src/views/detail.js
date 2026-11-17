@@ -187,7 +187,7 @@ export function renderDetail(id, data, nonce) {
     badge.className = 'badge ' + (DATA.opens > 0 ? 'badge-green' : 'badge-amber');
     badge.textContent = DATA.opens > 0 ? 'Opened' : 'Pending';
 
-    document.getElementById('deleteBtn').addEventListener('click', function() { if (confirm('Delete this tracker?')) fetch('/d/' + DATA.id).then(function() { location.href = '/'; }); });
+    document.getElementById('deleteBtn').addEventListener('click', function() { if (confirm('Delete this tracker?')) fetch('/d/' + DATA.id, { method: 'DELETE' }).then(function(r) { if (r.ok) location.href = '/'; else alert('Delete failed (' + r.status + ')'); }); });
     if (DATA.hasSenderIp) document.getElementById('protectionBanner').style.display = '';
 
     // Stats

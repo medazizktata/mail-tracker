@@ -101,3 +101,13 @@ describe('the popup links to the web dashboard', () => {
     assert.doesNotMatch(js, /dashboard-link[^\n]*dashboardPassword/);
   });
 });
+
+describe('the setup view checkbox', () => {
+  // `.setup input { width: 100% }` and `.setup { text-align: center }` stretched the checkbox across
+  // the row and pushed its label to the right edge; the row must opt out of both.
+  test('opts out of the full-width input rule and the centred text', () => {
+    const popup = read('popup.html');
+    assert.match(popup, /<input type="checkbox" id="track-links"[^>]*style="[^"]*width:auto/);
+    assert.match(popup, /<label style="[^"]*text-align:left[^"]*">\s*<input type="checkbox" id="track-links"/);
+  });
+});

@@ -263,30 +263,9 @@
     return { threadId, subject, timestamp };
   }
 
-  // Find best matching tracker for an email
-  function findMatchingTracker(trackers, email, identifiers) {
-    // First try exact subject + recipient match
-    let matches = trackers.filter(t => 
-      (t.recipient || '').split(', ').includes(email) && 
-      t.subject && 
-      identifiers.subject.includes(t.subject)
-    );
-    
-    if (matches.length === 1) return matches[0];
-    
-    // If multiple matches, try to find most recent
-    if (matches.length > 1) {
-      return matches.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-    }
-    
-    // Fallback to any tracker for this recipient (most recent)
-    matches = trackers.filter(t => (t.recipient || '').split(', ').includes(email));
-    if (matches.length > 0) {
-      return matches.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-    }
-    
-    return null;
-  }
+  // Matching lives in logic.js so it can be tested without a browser.
+  const findMatchingTracker = MailTrackerLogic.findMatchingTracker;
+
   // Process a compose window — inject pixels for untracked recipients
   async function processCompose(bodyEl) {
     const form = findComposeForm(bodyEl);
@@ -453,7 +432,7 @@
     sentRows.forEach((row, index) => {
       const toField = row.querySelector('.yW');
       const firstRecipient = toField && toField.querySelector('span[email]');
-      if (!firstRecipient || toField.textContent.indexOf(firstRecipient.textContent) < 1) return;
+      if (!firstRecipient || !MailTrackerLogic.isSentRow(toField.textContent, firstRecipient.textContent)) return;
       
       const emailSpan = toField.querySelector('span[email]');
       if (!emailSpan) return; // Remove the duplicate check since we cleared all indicators above

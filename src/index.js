@@ -113,6 +113,7 @@ export default {
         }
 
         let reclassified = 0;
+        let relabelled = 0;
         const keptEvents = [];
         existing.filteredEvents = existing.filteredEvents || [];
 
@@ -134,6 +135,7 @@ export default {
           if (eventTime >= cutoff && event.reason === 'bot_proxy') {
             event.reason = 'self_view';
             event.reclassifiedAt = nowIso;
+            relabelled++;
           }
         }
 
@@ -141,6 +143,14 @@ export default {
           existing.events = keptEvents;
           existing.opens = Math.max(0, existing.opens - reclassified);
           existing.skipped = (existing.skipped || 0) + reclassified;
+        }
+
+        // Nothing changed: do not write the record back. KV is eventually consistent, so a record
+        // read here can be older than one just written from another location, and writing it back
+        // would overwrite the newer one.
+        if (reclassified === 0 && relabelled === 0) {
+          results.push({ id, reclassified: 0, opensNow: existing.opens });
+          continue;
         }
 
         if (existing.filteredEvents.length > 20) existing.filteredEvents = existing.filteredEvents.slice(-20);

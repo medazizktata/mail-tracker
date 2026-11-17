@@ -555,3 +555,50 @@ describe('retention, write bound and multi-recipient trackers', () => {
     assert.equal(long.status, 400);
   });
 });
+
+// ------------------------------------------------------------------ /self --
+
+describe('/self writes only when it changes something', () => {
+  const callSelf = id => worker.fetch(req('/self', { method: 'POST', body: { ids: [id] } }), env);
+
+  test('a tracker with nothing to reclassify is not rewritten', async () => {
+    // KV is eventually consistent, so writing back a record you only read can overwrite a
+    // newer one written from another location (seen live: a stale copy won for about a minute).
+    const id = await createTracker();
+    const before = env.TRACKER.ops.put;
+    const body = await (await callSelf(id)).json();
+    assert.equal(body.totalReclassified, 0);
+    assert.equal(env.TRACKER.ops.put, before, 'wrote an unchanged record back');
+  });
+
+  test('an open older than the window is left alone and not rewritten', async () => {
+    const id = await createTracker();
+    await openPixel(id);
+    const d = await read(id);
+    d.events = d.events.map(e => ({ ...e, time: new Date(Date.now() - 60_000).toISOString() }));
+    await env.TRACKER.put(id, JSON.stringify(d));
+    const before = env.TRACKER.ops.put;
+    await callSelf(id);
+    assert.equal(env.TRACKER.ops.put, before);
+    assert.equal((await read(id)).opens, 1);
+  });
+
+  test('a recent scanner hit is relabelled as a self-view and saved', async () => {
+    const id = await createTracker();
+    await openPixel(id, { userAgent: 'Safelinks' });
+    const d = await read(id);
+    d.filteredEvents = d.filteredEvents.map(e => ({ ...e, time: new Date(Date.now() - 1_000).toISOString() }));
+    await env.TRACKER.put(id, JSON.stringify(d));
+    const before = env.TRACKER.ops.put;
+    await callSelf(id);
+    assert.equal(env.TRACKER.ops.put, before + 1);
+    assert.equal((await read(id)).filteredEvents.at(-1).reason, 'self_view');
+  });
+
+  test('an unknown id is reported and nothing is written', async () => {
+    const before = env.TRACKER.ops.put;
+    const body = await (await callSelf('nope')).json();
+    assert.equal(body.results[0].status, 'not_found');
+    assert.equal(env.TRACKER.ops.put, before);
+  });
+});

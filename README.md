@@ -2,154 +2,170 @@
 
 # Mail Tracker
 
-[![License](https://img.shields.io/github/license/xinshoutw/mail-tracker?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/github/license/medazizktata/mail-tracker?style=for-the-badge)](LICENSE)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](extension)
 
-自架的郵件開信追蹤。五分鐘安裝完成，跑在 Cloudflare 免費額度上。
+Self-hosted email open tracking. Install in five minutes, runs free on Cloudflare.
 
-**繁體中文** | [English](README-en.md)
+**English** | [繁體中文](README.zh-TW.md)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/medazizktata/mail-tracker)
+> Modified version of the original project.
+
+## Quick start (no config files)
+
+1. Click **Deploy to Cloudflare**, allow access when Cloudflare asks, and choose a password when it asks for `DASHBOARD_PASSWORD`. Cloudflare copies the project to your GitHub, creates the storage and deploys it to your own account.
+
+   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/medazizktata/mail-tracker)
+
+   Prefer a terminal? `pnpm install && pnpm run setup` does the same: it opens Cloudflare's "allow" screen, deploys, and picks the password for you.
+2. Open `https://<your-worker>.workers.dev/connect`, copy the connection code.
+3. In the extension popup, paste it into the first field and click **Save & Connect**.
+
+That is all. The code carries the worker address and the password, so there is nothing else to type. Not verified here: the Deploy to Cloudflare flow itself was not clicked through (it needs your GitHub and Cloudflare logins); `pnpm run setup` was run against a real account.
+ See [NOTICE.md](NOTICE.md) for provenance and what changed.
 
 </div>
 
-## 總覽
+## Overview
 
-Mail Tracker 在你寄出的信裡埋入一個看不見的 1x1 像素。收件人開信時像素會發出請求，
-這次開信就被記錄下來 —— 誰、何時、從哪裡。
+Mail Tracker embeds an invisible 1x1 pixel in the mail you send. When the recipient
+opens it, the pixel fires a request and the open is recorded — who, when, from where.
 
-Chrome 擴充功能會在你按下寄送時把像素注入 Gmail，每位收件人各一個，並在寄件備份旁
-顯示已讀標記。Cloudflare Worker 負責提供像素、過濾雜訊，並把資料存進你自己的 KV
-namespace。全程沒有第三方碰得到這些資料。
+A Chrome extension injects the pixel into Gmail on Send, one per recipient, and shows
+read indicators next to sent mail. A Cloudflare Worker serves the pixel, filters the
+noise, and stores everything in your own KV namespace. No third party ever sees the data.
 
-### 功能
+### Features
 
-- **自動追蹤** — 按下寄送時，擴充功能為每位收件人注入一個像素
-- **已讀標記** — Gmail 寄件備份的收件人旁顯示單勾與雙勾
-- **自開信過濾** — 你自己打開信件討論串，不會被算成收件人讀了信
-- **通知** — Chrome、Slack、Discord，且只在開信通過過濾後才發出
-- **自架** — 你的 Cloudflare 帳號、你的 KV namespace，中間沒有任何廠商
-- **零執行期相依** — 原生 JavaScript，無框架、無建置步驟
+- **Auto-tracking** — the extension injects a pixel per recipient when you press Send
+- **Read indicators** — single and double ticks beside recipients in the Gmail sent list
+- **Self-open filtering** — opening your own thread does not count as the recipient reading it
+- **Notifications** — Chrome, Slack and Discord, sent only once an open survives filtering
+- **Self-hosted** — your Cloudflare account, your KV namespace, no vendor in the middle
+- **No runtime dependencies** — vanilla JavaScript, no framework, no build step
 
-### 運作方式
+### How it works
 
-1. 你在 Gmail 按下寄送。擴充功能為每位收件人建立一個 tracker，並在信件本文放入一個
-   隱形的 `<img>`。
-2. 收件人開信。他的郵件客戶端向你的 Worker 抓取那個像素。
-3. Worker 記錄 IP、國家、user agent 與時間，接著跑三道過濾：寄件者 IP、已知掃描器、
-   以及針對重複請求的五秒窗口。
-4. 這次開信會先**排入佇列**，而不是立刻通知。
-5. 如果打開討論串的其實是你自己，擴充功能會在那個窗口內通知 Worker 重新歸類為自開信。
-6. Cron 在數秒後排空佇列，只針對剩下的開信通知你。
+1. You press Send in Gmail. The extension creates one tracker per recipient and drops an
+   invisible `<img>` into the body.
+2. The recipient opens the mail. Their client fetches the pixel from your Worker.
+3. The Worker records IP, country, user agent and time, then runs three filters: sender IP,
+   known scanners, and a five-second window against repeat hits.
+4. The open is queued for notification rather than announced immediately.
+5. If you were the one who opened the thread, the extension tells the Worker to reclassify
+   it as a self-view within that window.
+6. A cron trigger drains the queue a few seconds later and notifies you about what is left.
 
-第 4 到 6 步的延遲正是重點所在：它讓「你自己讀了那封信」不會被誤報成「收件人開信了」。
+The delay in steps 4 to 6 is the point: it is what stops your own reading of a thread from
+being reported as the recipient opening your mail.
 
-## 展示
+## Demo
 
 https://github.com/user-attachments/assets/5470a2ce-9076-407d-8961-1ade0ea8329f
 
 <br/>
 
-## 快速開始
+## Quick Start
 
-### 需求
+### Requirements
 
-- Node 20 以上
+- Node 20 or newer
 - pnpm
-- 已啟用 Workers 與 KV 的 Cloudflare 帳號
+- A Cloudflare account with Workers and KV enabled
 
-### 部署
+### Deploy
 
 ```bash
-git clone https://github.com/xinshoutw/mail-tracker.git
+git clone https://github.com/medazizktata/mail-tracker.git
 cd mail-tracker
 pnpm install
 
-pnpm exec wrangler kv namespace create "TRACKER"   # 把輸出的 id 貼進 wrangler.toml
-pnpm exec wrangler secret put DASHBOARD_PASSWORD   # 必要
+pnpm exec wrangler kv namespace create "TRACKER"   # paste the id into wrangler.toml
+pnpm exec wrangler secret put DASHBOARD_PASSWORD   # required
 pnpm run deploy
 ```
 
 > [!IMPORTANT]
-> `DASHBOARD_PASSWORD` 不是選用的。沒有設定時，Worker 會對所有路由回應 `503`，
-> 而不是把你的收件人、主旨與開信者 IP 攤在任何找到網址的人面前。追蹤端點
-> `/t/:id` 維持開放，郵件客戶端才載得到像素。
+> `DASHBOARD_PASSWORD` is not optional. Without it the Worker answers every route with
+> `503` rather than leaving your recipients, subjects and opener IPs readable by anyone
+> who finds the URL. The tracking endpoint `/t/:id` stays open so mail clients can load
+> the pixel.
 
 > [!IMPORTANT]
-> `wrangler.toml` 必須宣告 cron trigger。排入佇列的通知是由 scheduled handler
-> 排空的，少了它就一則 webhook 都發不出去。
+> `wrangler.toml` must declare the cron trigger. Queued notifications are drained by the
+> scheduled handler, so without it no webhook is ever sent.
 >
 > ```toml
 > [triggers]
 > crons = ["* * * * *"]
 > ```
 
-### 擴充功能
+### Extension
 
-到 [Releases](https://github.com/xinshoutw/mail-tracker/releases) 下載 zip 並解壓縮，
-在 `chrome://extensions` 開啟開發人員模式，選擇**載入未封裝項目**。開啟擴充功能後填入
-你的 Worker 網址與 dashboard 密碼。
+Download the zip from [Releases](https://github.com/medazizktata/mail-tracker/releases),
+unzip it, then load it at `chrome://extensions` with Developer mode on and **Load
+unpacked**. Open the extension and enter your Worker URL and dashboard password.
 
-### 本機開發
+### Local development
 
 ```bash
 pnpm dev     # http://localhost:8787
-pnpm test    # node --test，不需額外相依
+pnpm test    # node --test, no extra dependencies
 ```
 
-本機執行時把 `DASHBOARD_PASSWORD=...` 放進 `.dev.vars`，該檔案已在 `.gitignore` 內。
+Put `DASHBOARD_PASSWORD=...` in `.dev.vars` for local runs. The file is gitignored.
 
 <br/>
 
-## 技術棧
+## Tech Stack
 
-| 項目 | 選用 |
+| Area | Choice |
 |---|---|
-| 執行環境 | Cloudflare Workers（V8 isolate，無 Node API） |
-| 儲存 | Cloudflare KV，binding 為 `TRACKER` |
-| 排程 | Cron trigger，每分鐘 |
-| 擴充功能 | Chrome Manifest V3，原生 JS |
-| 測試 | `node:test`，搭配記憶體內的 KV stub |
-| 部署 | Cloudflare Workers Builds，push 到 `main` 觸發 |
-| 相依 | 執行期為零；wrangler 僅用於建置 |
+| Runtime | Cloudflare Workers (V8 isolate, no Node APIs) |
+| Storage | Cloudflare KV, bound as `TRACKER` |
+| Scheduling | Cron trigger, one minute |
+| Extension | Chrome Manifest V3, vanilla JS |
+| Tests | `node:test` against an in-memory KV stub |
+| Deploy | Cloudflare Workers Builds on push to `main` |
+| Dependencies | None at runtime; wrangler only for builds |
 
-### 專案結構
+### Project Structure
 
 ```
-src/index.js              Worker 進入點：路由、API handler、cron
-src/shared.js             常數、認證、跳脫、像素、KV metadata
-src/notifications.js      Slack 與 Discord webhook 發送
-src/views/dashboard.js    列表頁（GET /）
-src/views/detail.js       追蹤詳細頁（GET /s/:id）
+src/index.js              Worker entry: router, API handlers, cron
+src/shared.js             Constants, auth, escaping, pixel, KV metadata
+src/notifications.js      Slack and Discord webhook dispatch
+src/views/dashboard.js    Listing page (GET /)
+src/views/detail.js       Tracker page (GET /s/:id)
 extension/manifest.json   Manifest V3
-extension/gmail.js        Content script：寄送時注入、自開信偵測
-extension/popup.js        Popup：追蹤清單、詳細、設定
-extension/background.js   Service worker：輪詢新的開信
-test/worker.test.js       node --test 測試套件
-wrangler.toml             KV binding 與 cron trigger
+extension/gmail.js        Content script: inject on Send, self-view detection
+extension/popup.js        Popup: tracker list, detail, settings
+extension/background.js   Service worker: polls for new opens
+test/worker.test.js       node --test suite
+wrangler.toml             KV binding and cron trigger
 ```
 
 <br/>
 
 ## API
 
-除了 `/t/:id` 之外所有路由都使用 HTTP Basic 認證。使用者名稱會被忽略，只看密碼，
-密碼可以包含冒號。
+Every route except `/t/:id` uses HTTP Basic auth. The username is ignored; only the
+password matters, and it may contain colons.
 
-| 端點 | 認證 | 說明 |
+| Endpoint | Auth | Description |
 |---|:---:|---|
-| `GET /` | 是 | Dashboard |
-| `POST /new` | 是 | 以 `{ to?, subject?, bodyPreview?, messageId? }` 建立 tracker |
-| `GET /t/:id` | 否 | 提供像素並記錄開信 |
-| `GET /s/:id` | 是 | 追蹤詳細頁，或加 `?format=json` 取得 JSON 統計 |
-| `GET /list` | 是 | 以 JSON 列出所有 tracker |
-| `GET /feed` | 是 | 近期開信紀錄，單一 key，供擴充功能背景輪詢 |
-| `POST /self` | 是 | 將近期開信重新歸類為自開信，`{ ids: [...] }`，上限 50 |
-| `DELETE /d/:id` | 是 | 刪除 tracker |
+| `GET /` | Yes | Dashboard |
+| `POST /new` | Yes | Create a tracker from `{ to?, subject?, bodyPreview?, messageId? }` |
+| `GET /t/:id` | No | Serve the pixel and record the open |
+| `GET /s/:id` | Yes | Tracker page, or stats as JSON with `?format=json` |
+| `GET /list` | Yes | All trackers as JSON |
+| `GET /feed` | Yes | Recent opens from a single key, for the extension's background poll |
+| `POST /self` | Yes | Reclassify recent opens as self-views, `{ ids: [...] }`, max 50 |
+| `DELETE /d/:id` | Yes | Delete a tracker |
 
-`/new` 與 `/d/:id` 刻意拒絕 `GET`：任何網頁都能用一個 `<img>` 標籤發出 `GET`，
-而瀏覽器會自動帶上已快取的認證資訊。
+`/new` and `/d/:id` reject `GET` deliberately: a `GET` can be fired from any page with an
+`<img>` tag, and the browser attaches the cached credentials to it.
 
 ```bash
 curl -u :your-password -X POST -H 'Content-Type: application/json' \
@@ -161,55 +177,58 @@ curl -u :your-password -X DELETE https://your-worker.workers.dev/d/THE_ID
 
 <br/>
 
-## 比較
+## Comparison
 
 | | Mail Tracker | Mailtrack | Streak | Superhuman | HubSpot |
 |---|---|---|---|---|---|
-| 價格 | 免費 | $9.99/月 | $49/月 | $30/月 | $45/月 |
-| 自架 | 是 | 否 | 否 | 否 | 否 |
-| 開源 | AGPL-3.0 | 否 | 否 | 否 | 否 |
-| 不蒐集資料 | 是 | 否 | 否 | 否 | 否 |
-| 已讀標記 | 是 | 是 | 是 | 是 | 否 |
-| Slack 與 Discord | 是 | 否 | 否 | 否 | 是 |
-| 自開信過濾 | 是 | 部分 | 部分 | 是 | 是 |
+| Price | Free | $9.99/mo | $49/mo | $30/mo | $45/mo |
+| Self-hosted | Yes | No | No | No | No |
+| Open source | AGPL-3.0 | No | No | No | No |
+| No data collection | Yes | No | No | No | No |
+| Read indicators | Yes | Yes | Yes | Yes | No |
+| Slack and Discord | Yes | No | No | No | Yes |
+| Self-open filtering | Yes | Partial | Partial | Yes | Yes |
 
 <br/>
 
-## 限制
+## Limitations
 
-像素追蹤是推論，不是確證。在你依賴它之前，這些失效情境值得先知道：
+Pixel tracking is inference, not certainty. It fails in ways worth knowing before you
+rely on it:
 
-- **停用圖片** — 沒有像素載入就沒有訊號。企業版 Outlook 常見。
-- **Apple Mail Privacy Protection** — iOS 15 以後會透過 Apple 的代理預先抓取所有圖片，
-  於是記錄到的是 Apple 的 IP 而非讀信者的。
-- **Gmail 圖片快取** — Gmail 可能提供快取副本，導致同一個人之後的開信沒被記錄。
-- **自開信過濾需要擴充功能** — 在 Gmail 以外、或沒安裝擴充功能的情況下讀取被追蹤的信件，
-  可能被記成真實開信。
-- **純文字** — Gmail 的純文字撰寫模式會剝除 `<img>`，只送純文字的客戶端也一樣。
-  Gmail 預設送 HTML，所以只有在你主動切換時才會踩到。
+- **Images disabled** — no pixel load, no signal. Common in corporate Outlook.
+- **Apple Mail Privacy Protection** — iOS 15 and later pre-fetch every image through
+  Apple's proxy, so an open is recorded with Apple's IP rather than the reader's.
+- **Gmail image caching** — Gmail may serve a cached copy, so later opens by the same
+  person can go unrecorded.
+- **Self-open filtering needs the extension** — reading a tracked thread outside Gmail,
+  or without the extension installed, can register as a genuine open.
+- **Plain text** — Gmail's plain text compose mode strips the `<img>`, as does any client
+  that sends plain text only. Gmail sends HTML by default, so this only bites if you
+  switch it on.
 
 <br/>
 
-## 文件
+## Documentation
 
-| 檔案 | 內容 |
+| File | Contents |
 |---|---|
-| [`docs/SETUP.md`](docs/SETUP.md) | 完整部署教學、擴充功能安裝、使用方式（英文） |
-| [`docs/COST.md`](docs/COST.md) | Cloudflare 免費額度上限與實際費用估算（英文） |
-| [`PASSWORD_SETUP.md`](PASSWORD_SETUP.md) | 設定 dashboard 密碼的三種方式（英文） |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | 如何提出變更（英文） |
-| [`CLAUDE.md`](CLAUDE.md) | 架構說明與慣例，供貢獻者與 AI agent 參考（英文） |
+| [`docs/SETUP.md`](docs/SETUP.md) | Full deployment walkthrough, extension install, usage |
+| [`docs/COST.md`](docs/COST.md) | Cloudflare free tier limits and real-world cost estimates |
+| [`PASSWORD_SETUP.md`](PASSWORD_SETUP.md) | The three ways to set the dashboard password |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to propose changes |
+| [`CLAUDE.md`](CLAUDE.md) | Architecture notes and conventions for contributors and agents |
 
-### 部署與 CI
+### Deployment and CI
 
-| 流程 | 執行於 | 觸發條件 |
+| Pipeline | Runs on | Trigger |
 |---|---|---|
-| Worker 部署 | Cloudflare Workers Builds | push 到 `main` |
-| 測試與建置檢查 | GitHub Actions，`ci.yml` | push、pull request、手動 |
-| 擴充功能發佈 | GitHub Actions，`release-extension.yml` | 推送 `v*` tag |
+| Worker deploy | Cloudflare Workers Builds | push to `main` |
+| Tests and build check | GitHub Actions, `ci.yml` | push, pull request, manual |
+| Extension release | GitHub Actions, `release-extension.yml` | pushing a `v*` tag |
 
-發佈擴充功能的做法是先更新 `extension/manifest.json` 的版號，再推送相符的 tag。
-兩者不一致時發佈流程會直接失敗，而不會送出版號對不上的 zip。
+Releasing the extension means bumping `extension/manifest.json` and pushing a matching
+tag. The job refuses to publish when the two disagree.
 
 ```bash
 git tag v1.2.0 && git push origin main v1.2.0
@@ -217,12 +236,12 @@ git tag v1.2.0 && git push origin main v1.2.0
 
 <br/>
 
-## 貢獻
+## Contributing
 
-歡迎開 issue 與 pull request。送出前請先跑 `pnpm test`；CI 會執行同一套測試，
-外加一次 Worker 的 dry-run 建置。
+Issues and pull requests are welcome. Run `pnpm test` before opening one; CI runs the
+same suite plus a dry-run build of the Worker.
 
-## 授權
+## License
 
-[AGPL-3.0](LICENSE)。第 13 條適用於網路使用：只要你把修改過的版本部署到其他人
-連得到的地方，就必須向他們提供原始碼。
+[AGPL-3.0](LICENSE). Section 13 applies to network use: deploy a modified copy where
+other people can reach it and you have to offer them its source.

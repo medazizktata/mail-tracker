@@ -5,7 +5,7 @@
 // formats itself would always render as UTC.
 
 const DISCORD_FIELD_LIMIT = 1024;
-const REPO_URL = 'https://github.com/samrathreddy/mail-tracker';
+const REPO_URL = 'https://github.com/medazizktata/mail-tracker';
 
 /** Neutralise Slack mrkdwn control characters, including <!channel> pings. */
 function escapeSlack(str) {

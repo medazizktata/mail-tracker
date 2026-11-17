@@ -19,7 +19,7 @@ export function renderLogin({ error = '', next = '/', nonce }) {
     --text: #fafafa; --text-2: #a1a1aa; --accent: #4f46e5; --accent-hover: #6366f1; --red: #f87171;
   }
   html { color-scheme: dark; }
-  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text);
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text);
     min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
   main { width: 100%; max-width: 380px; }
   .brand { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 1.05rem; letter-spacing: -0.02em; margin-bottom: 24px; }

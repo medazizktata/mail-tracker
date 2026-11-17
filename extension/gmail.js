@@ -284,11 +284,24 @@
     await injectTracker(bodyEl, recipients);
   }
 
-  // Gmail localises these labels. Add a word here for another interface language.
-  const SEND_WORDS = ['Send', 'Envoyer'];
-  const SEND_SELECTOR = SEND_WORDS
-    .flatMap(w => [`div[role="button"][aria-label*="${w}"]`, `div[role="button"][data-tooltip*="${w}"]`])
-    .join(', ');
+  // The Send label depends on the interface language (<html lang>); see send-words.js.
+  const labelSelector = () => MailTrackerSend.sendSelector(document.documentElement.lang || navigator.language);
+  const SEND_CLASS_SELECTOR = MailTrackerSend.fallbackSelector;
+
+  function sendButtonIn(container) {
+    return container.querySelector(labelSelector()) || container.querySelector(SEND_CLASS_SELECTOR);
+  }
+
+  // The class fallback only applies when no labelled Send button exists in that
+  // compose, so a stray .aoO element can never override a label match.
+  function sendButtonFrom(el) {
+    const byLabel = el.closest(labelSelector());
+    if (byLabel) return byLabel;
+    const byClass = el.closest(SEND_CLASS_SELECTOR);
+    if (!byClass) return null;
+    const scope = byClass.closest('[role="dialog"]') || document;
+    return scope.querySelector(labelSelector()) ? null : byClass;
+  }
   let isSending = false; // Flag to prevent infinite loop
 
   // Track the compose being sent (not every open compose or draft), then send it.
@@ -317,8 +330,11 @@
     if (warnedSend || !trackingEnabled || !serverUrl) return;
     const body = document.querySelector('[role="dialog"] div[contenteditable="true"]');
     const dialog = body && body.closest('[role="dialog"]');
-    if (dialog && !dialog.querySelector(SEND_SELECTOR)) {
+    if (dialog && !sendButtonIn(dialog)) {
       warnedSend = true;
+      console.warn(LOG, 'Send button not recognised. lang =', document.documentElement.lang, 'buttons:',
+        Array.from(dialog.querySelectorAll('div[role="button"]')).slice(0, 15)
+          .map(b => ({ label: b.getAttribute('aria-label'), tip: b.getAttribute('data-tooltip'), cls: b.className })));
       showBanner('Mail Tracker: Send button not recognised (Gmail language?). Messages will go out WITHOUT tracking.');
     }
   }
@@ -326,7 +342,7 @@
   function setupSendInterception() {
     document.addEventListener('click', (e) => {
       if (!trackingEnabled || !serverUrl || isSending) return;
-      const target = e.target.closest(SEND_SELECTOR);
+      const target = sendButtonFrom(e.target);
       if (!target) return;
 
       console.log(LOG, 'Send button clicked - checking for untracked recipients');
@@ -342,7 +358,7 @@
       // Compose windows are dialogs. The looser findComposeForm() fallback can match
       // the whole page, and Ctrl+Enter in the search box must never send a draft.
       const dialog = e.target.closest('[role="dialog"]');
-      const button = dialog && dialog.querySelector(SEND_SELECTOR);
+      const button = dialog && sendButtonIn(dialog);
       if (!button) {
         // Typing in an inline reply: Gmail will send it, and we cannot track it from here.
         if (e.target.closest('[contenteditable="true"]')) showTrackingFailure("Ctrl+Enter in an inline reply is not tracked, use the Send button");

@@ -1,5 +1,8 @@
 // Background service worker — polls for new opens and sends notifications
 
+importScripts('i18n.js');
+const { t } = MailTrackerI18n;
+
 const POLL_TIMEOUT_MS = 10_000; // a hung fetch would keep the service worker pinned alive
 
 async function getServerUrl() {
@@ -38,8 +41,8 @@ async function pollForOpens() {
         chrome.notifications.create(`open-${open.id}-${new Date(open.time).getTime()}`, {
           type: 'basic',
           iconUrl: 'icons/icon128.png',
-          title: 'Email Opened!',
-          message: `${who} opened your email — total opens: ${open.opens}`,
+          title: t('notifOpenedTitle'),
+          message: t('notifOpenedBody', [who, String(open.opens)]),
         });
       }
     }

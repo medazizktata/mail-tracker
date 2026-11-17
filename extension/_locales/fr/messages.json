@@ -1,0 +1,285 @@
+{
+  "extName": {
+    "message": "Mail Tracker"
+  },
+  "extDescription": {
+    "message": "Suivez les ouvertures de vos e-mails dans Gmail. Ajoute un pixel de suivi invisible à l'envoi."
+  },
+  "popupLoading": {
+    "message": "Chargement…"
+  },
+  "popupManual": {
+    "message": "+ Manuel"
+  },
+  "settings": {
+    "message": "Paramètres"
+  },
+  "statRealOpens": {
+    "message": "Ouvertures réelles"
+  },
+  "statLastOpen": {
+    "message": "Dernière ouverture"
+  },
+  "filtered": {
+    "message": "Filtrées"
+  },
+  "statSenderProtection": {
+    "message": "Protection de l'expéditeur"
+  },
+  "snippetHtmlLabel": {
+    "message": "Extrait HTML (cliquer pour copier)"
+  },
+  "snippetUrlLabel": {
+    "message": "URL de suivi (cliquer pour copier)"
+  },
+  "tabRecent": {
+    "message": "Récentes"
+  },
+  "deleteTrackerTitle": {
+    "message": "Supprimer ce suivi"
+  },
+  "setupPrompt": {
+    "message": "Saisissez l'URL de votre serveur Mail Tracker (l'URL de votre Worker Cloudflare)"
+  },
+  "passwordPlaceholder": {
+    "message": "Mot de passe du tableau de bord (facultatif)"
+  },
+  "showPassword": {
+    "message": "Afficher le mot de passe"
+  },
+  "hidePassword": {
+    "message": "Masquer le mot de passe"
+  },
+  "saveConnect": {
+    "message": "Enregistrer et se connecter"
+  },
+  "forgetSend": {
+    "message": "Oublier les boutons d'envoi appris"
+  },
+  "forgetSendDone": {
+    "message": "Boutons d'envoi appris effacés"
+  },
+  "failedToLoad": {
+    "message": "Échec du chargement : $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "noTrackedYet": {
+    "message": "Aucun e-mail suivi pour l'instant. Ils apparaîtront ici lorsque vous enverrez un message depuis Gmail."
+  },
+  "passwordIncorrect": {
+    "message": "Mot de passe incorrect. Veuillez mettre à jour vos paramètres."
+  },
+  "errorPrefix": {
+    "message": "Erreur : $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "trackerCreated": {
+    "message": "Suivi « $id$ » créé !",
+    "placeholders": {
+      "id": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "Supprimer le suivi « $id$ » ? Cette action est irréversible.",
+    "placeholders": {
+      "id": {
+        "content": "$1"
+      }
+    }
+  },
+  "trackerDeleted": {
+    "message": "Suivi supprimé"
+  },
+  "enterUrl": {
+    "message": "Veuillez saisir une URL"
+  },
+  "needHttps": {
+    "message": "Utilisez une URL https:// complète (Gmail bloque le http simple, et le mot de passe circulerait en clair)"
+  },
+  "connecting": {
+    "message": "Connexion…"
+  },
+  "cantConnect": {
+    "message": "Connexion impossible : $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "serverReturned": {
+    "message": "Le serveur a renvoyé $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "connected": {
+    "message": "Connecté !"
+  },
+  "copied": {
+    "message": "Copié dans le presse-papiers !"
+  },
+  "timeJustNow": {
+    "message": "à l'instant"
+  },
+  "timeMinutesAgo": {
+    "message": "il y a $n$ min",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "il y a $n$ h",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "il y a $n$ j",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "noFilteredEvents": {
+    "message": "Aucun événement filtré"
+  },
+  "noOpensYet": {
+    "message": "Pas encore d'ouverture"
+  },
+  "selfOpen": {
+    "message": "Ouverture par vous"
+  },
+  "botProxy": {
+    "message": "Robot / proxy"
+  },
+  "detailTo": {
+    "message": "À : $recipient$",
+    "placeholders": {
+      "recipient": {
+        "content": "$1"
+      }
+    }
+  },
+  "protectionActive": {
+    "message": "Active"
+  },
+  "protectionOff": {
+    "message": "Désactivée"
+  },
+  "neverOpened": {
+    "message": "Jamais"
+  },
+  "requestTimeout": {
+    "message": "Délai dépassé : vérifiez votre mot de passe"
+  },
+  "httpError": {
+    "message": "HTTP $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "notifOpenedTitle": {
+    "message": "E-mail ouvert !"
+  },
+  "notifOpenedBody": {
+    "message": "$who$ a ouvert votre e-mail — ouvertures au total : $count$",
+    "placeholders": {
+      "who": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "bannerNotTracked": {
+    "message": "Mail Tracker : ce message a été envoyé SANS suivi ($reason$)",
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
+  },
+  "reasonServerSlow": {
+    "message": "serveur trop lent"
+  },
+  "reasonServerUnreachable": {
+    "message": "serveur injoignable"
+  },
+  "reasonServerAnswered": {
+    "message": "le serveur a répondu $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "reasonInlineCtrlEnter": {
+    "message": "Ctrl+Entrée dans une réponse intégrée n'est pas suivi, utilisez le bouton d'envoi"
+  },
+  "bannerSendNotRecognised": {
+    "message": "Mail Tracker : votre bouton d'envoi n'est pas encore reconnu. Les messages partiront SANS suivi."
+  },
+  "actionLearnSend": {
+    "message": "Reconnaître mon bouton d'envoi"
+  },
+  "bannerLearnPrompt": {
+    "message": "Cliquez maintenant sur votre bouton d'envoi. Rien ne sera envoyé."
+  },
+  "bannerLearned": {
+    "message": "« $label$ » enregistré comme bouton d'envoi.",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "actionUndo": {
+    "message": "Annuler"
+  },
+  "indicatorOpenedOne": {
+    "message": "Ouvert une fois"
+  },
+  "indicatorOpenedMany": {
+    "message": "Ouvert $count$ fois",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "indicatorLastOpened": {
+    "message": "Dernière ouverture : $when$",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      }
+    }
+  },
+  "indicatorNever": {
+    "message": "jamais"
+  },
+  "indicatorUnopened": {
+    "message": "Envoyé, pas encore ouvert"
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "extName": {
+    "message": "Mail Tracker"
+  },
+  "extDescription": {
+    "message": "Track email opens in Gmail. Adds an invisible tracking pixel when you send."
+  },
+  "popupLoading": {
+    "message": "Loading..."
+  },
+  "popupManual": {
+    "message": "+ Manual"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "statRealOpens": {
+    "message": "Real Opens"
+  },
+  "statLastOpen": {
+    "message": "Last Open"
+  },
+  "filtered": {
+    "message": "Filtered"
+  },
+  "statSenderProtection": {
+    "message": "Sender Protection"
+  },
+  "snippetHtmlLabel": {
+    "message": "HTML Snippet (click to copy)"
+  },
+  "snippetUrlLabel": {
+    "message": "Tracking URL (click to copy)"
+  },
+  "tabRecent": {
+    "message": "Recent"
+  },
+  "deleteTrackerTitle": {
+    "message": "Delete tracker"
+  },
+  "setupPrompt": {
+    "message": "Enter your Mail Tracker server URL (your Cloudflare Worker URL)"
+  },
+  "passwordPlaceholder": {
+    "message": "Dashboard password (optional)"
+  },
+  "showPassword": {
+    "message": "Show password"
+  },
+  "hidePassword": {
+    "message": "Hide password"
+  },
+  "saveConnect": {
+    "message": "Save & Connect"
+  },
+  "forgetSend": {
+    "message": "Forget learned Send buttons"
+  },
+  "forgetSendDone": {
+    "message": "Learned Send buttons cleared"
+  },
+  "failedToLoad": {
+    "message": "Failed to load: $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "noTrackedYet": {
+    "message": "No tracked emails yet. They appear here when you send mail from Gmail."
+  },
+  "passwordIncorrect": {
+    "message": "Password incorrect. Please update your settings."
+  },
+  "errorPrefix": {
+    "message": "Error: $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "trackerCreated": {
+    "message": "Tracker “$id$” created!",
+    "placeholders": {
+      "id": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "Delete tracker “$id$”? This cannot be undone.",
+    "placeholders": {
+      "id": {
+        "content": "$1"
+      }
+    }
+  },
+  "trackerDeleted": {
+    "message": "Tracker deleted"
+  },
+  "enterUrl": {
+    "message": "Please enter a URL"
+  },
+  "needHttps": {
+    "message": "Use a full https:// URL (Gmail blocks plain http, and the password would travel in clear)"
+  },
+  "connecting": {
+    "message": "Connecting..."
+  },
+  "cantConnect": {
+    "message": "Can't connect: $error$",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "serverReturned": {
+    "message": "Server returned $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "connected": {
+    "message": "Connected!"
+  },
+  "copied": {
+    "message": "Copied to clipboard!"
+  },
+  "timeJustNow": {
+    "message": "just now"
+  },
+  "timeMinutesAgo": {
+    "message": "$n$m ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeHoursAgo": {
+    "message": "$n$h ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "timeDaysAgo": {
+    "message": "$n$d ago",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "noFilteredEvents": {
+    "message": "No filtered events"
+  },
+  "noOpensYet": {
+    "message": "No opens yet"
+  },
+  "selfOpen": {
+    "message": "Self-open"
+  },
+  "botProxy": {
+    "message": "Bot / Proxy"
+  },
+  "detailTo": {
+    "message": "To: $recipient$",
+    "placeholders": {
+      "recipient": {
+        "content": "$1"
+      }
+    }
+  },
+  "protectionActive": {
+    "message": "Active"
+  },
+  "protectionOff": {
+    "message": "Off"
+  },
+  "neverOpened": {
+    "message": "Never"
+  },
+  "requestTimeout": {
+    "message": "Request timeout - check your password"
+  },
+  "httpError": {
+    "message": "HTTP $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "notifOpenedTitle": {
+    "message": "Email Opened!"
+  },
+  "notifOpenedBody": {
+    "message": "$who$ opened your email — total opens: $count$",
+    "placeholders": {
+      "who": {
+        "content": "$1"
+      },
+      "count": {
+        "content": "$2"
+      }
+    }
+  },
+  "bannerNotTracked": {
+    "message": "Mail Tracker: this message was sent WITHOUT tracking ($reason$)",
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
+  },
+  "reasonServerSlow": {
+    "message": "server too slow"
+  },
+  "reasonServerUnreachable": {
+    "message": "server unreachable"
+  },
+  "reasonServerAnswered": {
+    "message": "server answered $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "reasonInlineCtrlEnter": {
+    "message": "Ctrl+Enter in an inline reply is not tracked, use the Send button"
+  },
+  "bannerSendNotRecognised": {
+    "message": "Mail Tracker: your Send button is not known yet. Messages will go out WITHOUT tracking."
+  },
+  "actionLearnSend": {
+    "message": "Learn my Send button"
+  },
+  "bannerLearnPrompt": {
+    "message": "Click your Send button now. Nothing will be sent."
+  },
+  "bannerLearned": {
+    "message": "Learned “$label$” as your Send button.",
+    "placeholders": {
+      "label": {
+        "content": "$1"
+      }
+    }
+  },
+  "actionUndo": {
+    "message": "Undo"
+  },
+  "indicatorOpenedOne": {
+    "message": "Opened once"
+  },
+  "indicatorOpenedMany": {
+    "message": "Opened $count$ times",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "indicatorLastOpened": {
+    "message": "Last opened: $when$",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      }
+    }
+  },
+  "indicatorNever": {
+    "message": "never"
+  },
+  "indicatorUnopened": {
+    "message": "Sent but not opened yet"
+  }
+}

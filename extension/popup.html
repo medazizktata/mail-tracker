@@ -366,12 +366,12 @@
     <div class="header">
       <h1><svg width="20" height="20" viewBox="0 0 100 100" style="flex-shrink:0"><rect width="100" height="100" rx="20" fill="#6366f1"/><path d="M20 35c0-3 2-5 5-5h50c3 0 5 2 5 5v30c0 3-2 5-5 5H25c-3 0-5-2-5-5V35z" fill="none" stroke="white" stroke-width="5"/><path d="M22 33l28 22 28-22" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="75" cy="28" r="12" fill="#34d399"/></svg> Mail Tracker</h1>
       <div class="header-actions">
-        <button class="btn btn-ghost" id="settings-btn" title="Settings">&#9881;</button>
-        <button class="btn btn-primary" id="new-btn">+ Manual</button>
+        <button class="btn btn-ghost" id="settings-btn" data-i18n-title="settings">&#9881;</button>
+        <button class="btn btn-primary" id="new-btn" data-i18n="popupManual"></button>
       </div>
     </div>
     <div id="pixel-container">
-      <div class="loading"><div class="spinner"></div>Loading...</div>
+      <div class="loading"><div class="spinner"></div><span data-i18n="popupLoading"></span></div>
     </div>
   </div>
 
@@ -380,39 +380,39 @@
     <div class="detail-header">
       <button class="btn btn-ghost" id="back-btn">&#8592;</button>
       <h2 id="detail-id"></h2>
-      <button class="btn btn-danger" id="delete-btn" title="Delete tracker">&#128465;</button>
+      <button class="btn btn-danger" id="delete-btn" data-i18n-title="deleteTrackerTitle">&#128465;</button>
     </div>
     <div class="detail-recipient" id="detail-recipient"></div>
     <div class="stat-cards">
       <div class="stat-card">
-        <label>Real Opens</label>
+        <label data-i18n="statRealOpens"></label>
         <div class="value green" id="detail-opens">0</div>
       </div>
       <div class="stat-card">
-        <label>Last Open</label>
+        <label data-i18n="statLastOpen"></label>
         <div class="value" id="detail-last" style="font-size:13px;">—</div>
       </div>
       <div class="stat-card">
-        <label>Filtered</label>
+        <label data-i18n="filtered"></label>
         <div class="value orange" id="detail-skipped">0</div>
       </div>
       <div class="stat-card">
-        <label>Sender Protection</label>
+        <label data-i18n="statSenderProtection"></label>
         <div class="value blue" id="detail-protection" style="font-size:13px;">—</div>
       </div>
     </div>
     <div class="snippet-section">
-      <div class="snippet-label">HTML Snippet (click to copy)</div>
+      <div class="snippet-label" data-i18n="snippetHtmlLabel"></div>
       <div class="snippet-box" id="snippet-html"></div>
     </div>
     <div class="snippet-section">
-      <div class="snippet-label">Tracking URL (click to copy)</div>
+      <div class="snippet-label" data-i18n="snippetUrlLabel"></div>
       <div class="snippet-box" id="snippet-url"></div>
     </div>
     <div class="events-section">
       <div class="event-tabs">
-        <button class="event-tab active" data-tab="recent">Recent</button>
-        <button class="event-tab" data-tab="filtered">Filtered</button>
+        <button class="event-tab active" data-tab="recent" data-i18n="tabRecent"></button>
+        <button class="event-tab" data-tab="filtered" data-i18n="filtered"></button>
       </div>
       <div id="events-list"></div>
       <div id="filtered-list" style="display:none;"></div>
@@ -422,17 +422,18 @@
   <!-- Setup View -->
   <div id="setup-view" style="display:none;">
     <div class="header" id="setup-header" style="display:none;">
-      <h1>&#9881; Settings</h1>
+      <h1>&#9881; <span data-i18n="settings"></span></h1>
       <button class="btn btn-ghost" id="setup-back-btn">&#8592;</button>
     </div>
     <div class="setup">
-      <p>Enter your Mail Tracker server URL (your Cloudflare Worker URL)</p>
+      <p data-i18n="setupPrompt"></p>
       <input type="url" id="server-input" placeholder="https://mail-tracker.yourname.workers.dev" />
       <div style="position:relative;">
-        <input type="password" id="password-input" placeholder="Dashboard password (optional)" style="padding-right:36px;" />
-        <button type="button" id="toggle-password" style="position:absolute;right:8px;top:40%;transform:translateY(-50%);background:none;border:none;color:#555;cursor:pointer;padding:4px;line-height:0;" title="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <input type="password" id="password-input" data-i18n-placeholder="passwordPlaceholder" style="padding-right:36px;" />
+        <button type="button" id="toggle-password" style="position:absolute;right:8px;top:40%;transform:translateY(-50%);background:none;border:none;color:#555;cursor:pointer;padding:4px;line-height:0;" data-i18n-title="showPassword"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
       </div>
-      <button class="btn btn-primary" id="save-btn">Save & Connect</button>
+      <button class="btn btn-primary" id="save-btn" data-i18n="saveConnect"></button>
+      <button class="btn btn-ghost" id="forget-send-btn" data-i18n="forgetSend" style="margin-top:8px;"></button>
       <p id="setup-error" style="color:#ef4444;margin-top:12px;display:none;"></p>
     </div>
   </div>
@@ -440,6 +441,7 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <script src="i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

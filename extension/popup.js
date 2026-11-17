@@ -1,3 +1,6 @@
+// --- i18n ---
+const { t, applyI18n, uiLocale } = MailTrackerI18n;
+
 // --- State ---
 let serverUrl = '';
 let dashboardPassword = '';
@@ -20,6 +23,8 @@ function esc(str) {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', async () => {
+  document.documentElement.lang = uiLocale();
+  applyI18n();
   const { serverUrl: saved, authFailed: savedAuthFailed } = await chrome.storage.sync.get(['serverUrl', 'authFailed']);
   const { dashboardPassword: savedPass } = await chrome.storage.local.get(['dashboardPassword']);
   serverUrl = saved || '';
@@ -44,6 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('save-btn').addEventListener('click', saveSettings);
   document.getElementById('delete-btn').addEventListener('click', deleteCurrentPixel);
+  document.getElementById('forget-send-btn').addEventListener('click', async () => {
+    await chrome.storage.local.remove('sendSignatures');
+    showToast(t('forgetSendDone'));
+  });
 
   // Password visibility toggle
   const togglePwBtn = document.getElementById('toggle-password');
@@ -79,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isPassword = pwInput.type === 'password';
     pwInput.type = isPassword ? 'text' : 'password';
     togglePwBtn.replaceChildren(makeEyeSvg(!isPassword));
-    togglePwBtn.title = isPassword ? 'Hide password' : 'Show password';
+    togglePwBtn.title = isPassword ? t('hidePassword') : t('showPassword');
   });
 
   document.getElementById('snippet-html').addEventListener('click', () => {
@@ -120,12 +129,12 @@ async function api(path, options = {}) {
       showSetup(false);
       throw new Error('Authentication required');
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(t('httpError', [String(res.status)]));
     return res.json();
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('Request timeout - check your password');
+      throw new Error(t('requestTimeout'));
     }
     throw err;
   }
@@ -191,14 +200,14 @@ async function showDetail(id) {
   try {
     const data = await api(`/s/${id}`);
     document.getElementById('detail-recipient').textContent =
-      data.recipient ? `To: ${data.recipient}` : '';
+      data.recipient ? t('detailTo', [data.recipient]) : '';
     document.getElementById('detail-opens').textContent = data.opens;
     document.getElementById('detail-skipped').textContent = data.skipped || 0;
     document.getElementById('detail-protection').textContent =
-      data.hasSenderProtection ? 'Active' : 'Off';
+      data.hasSenderProtection ? t('protectionActive') : t('protectionOff');
     document.getElementById('detail-last').textContent = data.events.length
       ? timeAgo(data.events[data.events.length - 1].time)
-      : 'Never';
+      : t('neverOpened');
 
     const recentEvents = (data.events || []).slice().reverse().slice(0, 20);
     const filteredEvents = (data.filteredEvents || []).slice().reverse().slice(0, 20);
@@ -224,7 +233,7 @@ async function showDetail(id) {
     eventsListEl.textContent = '';
     const errDiv = document.createElement('div');
     errDiv.style.color = '#ef4444';
-    errDiv.textContent = `Failed to load: ${err.message}`;
+    errDiv.textContent = t('failedToLoad', [err.message]);
     eventsListEl.appendChild(errDiv);
   }
 }
@@ -237,7 +246,7 @@ async function loadPixels() {
   const spinner = document.createElement('div');
   spinner.className = 'spinner';
   loadingDiv.appendChild(spinner);
-  loadingDiv.appendChild(document.createTextNode('Loading...'));
+  loadingDiv.appendChild(document.createTextNode(t('popupLoading')));
   pixelContainer.appendChild(loadingDiv);
 
   try {
@@ -251,7 +260,7 @@ async function loadPixels() {
       icon.style.fontSize = '24px';
       icon.textContent = '\u25CB';
       const text = document.createElement('p');
-      text.textContent = 'No tracked emails yet. Click + New to create one.';
+      text.textContent = t('noTrackedYet');
       empty.appendChild(icon);
       empty.appendChild(text);
       pixelContainer.appendChild(empty);
@@ -297,7 +306,7 @@ async function loadPixels() {
       meta.className = 'pixel-meta';
       const metaParts = [];
       if (p.recipient) metaParts.push(p.id);
-      metaParts.push(p.lastOpen ? timeAgo(p.lastOpen) : 'No opens yet');
+      metaParts.push(p.lastOpen ? timeAgo(p.lastOpen) : t('noOpensYet'));
       meta.textContent = metaParts.join(' · ');
       info.appendChild(meta);
 
@@ -328,9 +337,9 @@ async function loadPixels() {
     }
     const text = document.createElement('p');
     if (err.message === 'Authentication required') {
-      text.textContent = 'Password incorrect. Please update your settings.';
+      text.textContent = t('passwordIncorrect');
     } else {
-      text.textContent = `Error: ${err.message}`;
+      text.textContent = t('errorPrefix', [err.message]);
     }
     empty.appendChild(icon);
     empty.appendChild(text);
@@ -345,23 +354,23 @@ async function createPixel() {
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
     });
-    showToast(`Tracker "${data.id}" created!`);
+    showToast(t('trackerCreated', [data.id]));
     loadPixels();
   } catch (err) {
-    showToast(`Error: ${err.message}`);
+    showToast(t('errorPrefix', [err.message]));
   }
 }
 
 async function deleteCurrentPixel() {
   if (!currentPixelId) return;
-  if (!confirm(`Delete tracker "${currentPixelId}"? This cannot be undone.`)) return;
+  if (!confirm(t('confirmDelete', [currentPixelId]))) return;
 
   try {
     await api(`/d/${currentPixelId}`, { method: 'DELETE' });
-    showToast('Tracker deleted');
+    showToast(t('trackerDeleted'));
     showList();
   } catch (err) {
-    showToast(`Error: ${err.message}`);
+    showToast(t('errorPrefix', [err.message]));
   }
 }
 
@@ -371,7 +380,7 @@ async function saveSettings() {
   const errorEl = document.getElementById('setup-error');
 
   if (!input) {
-    errorEl.textContent = 'Please enter a URL';
+    errorEl.textContent = t('enterUrl');
     errorEl.style.display = 'block';
     errorEl.style.color = '#ef4444';
     return;
@@ -380,14 +389,14 @@ async function saveSettings() {
   let parsed;
   try { parsed = new URL(input); } catch { parsed = null; }
   if (!parsed || (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(parsed.hostname))) {
-    errorEl.textContent = 'Use a full https:// URL (Gmail blocks plain http, and the password would travel in clear)';
+    errorEl.textContent = t('needHttps');
     errorEl.style.display = 'block';
     errorEl.style.color = '#ef4444';
     return;
   }
 
   // Test connection
-  errorEl.textContent = 'Connecting...';
+  errorEl.textContent = t('connecting');
   errorEl.style.display = 'block';
   errorEl.style.color = '#888';
 
@@ -397,10 +406,10 @@ async function saveSettings() {
       headers['Authorization'] = 'Basic ' + btoa(':' + passwordInput);
     }
     const res = await fetch(`${input}/list`, { headers });
-    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    if (!res.ok) throw new Error(t('serverReturned', [String(res.status)]));
     await res.json();
   } catch (err) {
-    errorEl.textContent = `Can't connect: ${err.message}`;
+    errorEl.textContent = t('cantConnect', [err.message]);
     errorEl.style.color = '#ef4444';
     return;
   }
@@ -415,7 +424,7 @@ async function saveSettings() {
   await chrome.storage.local.remove(['tempServerUrl', 'tempPassword']);  // tempPassword: clear any left by an older build
   
   errorEl.style.display = 'none';
-  showToast('Connected!');
+  showToast(t('connected'));
 
   setupView.style.display = 'none';
   listView.style.display = 'block';
@@ -431,7 +440,7 @@ function showToast(msg) {
 
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
-    showToast('Copied to clipboard!');
+    showToast(t('copied'));
   });
 }
 
@@ -440,11 +449,11 @@ function timeAgo(dateStr) {
   const then = new Date(dateStr).getTime();
   const diff = Math.floor((now - then) / 1000);
 
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  if (diff < 60) return t('timeJustNow');
+  if (diff < 3600) return t('timeMinutesAgo', [String(Math.floor(diff / 60))]);
+  if (diff < 86400) return t('timeHoursAgo', [String(Math.floor(diff / 3600))]);
+  if (diff < 604800) return t('timeDaysAgo', [String(Math.floor(diff / 86400))]);
+  return new Date(dateStr).toLocaleDateString(uiLocale());
 }
 
 function truncate(str, len) {
@@ -456,7 +465,7 @@ function renderEventList(container, events, isFiltered) {
   if (events.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'color:#444;font-size:12px;';
-    empty.textContent = isFiltered ? 'No filtered events' : 'No opens yet';
+    empty.textContent = isFiltered ? t('noFilteredEvents') : t('noOpensYet');
     container.appendChild(empty);
     return;
   }
@@ -470,12 +479,11 @@ function renderEventList(container, events, isFiltered) {
 
     if (isFiltered) {
       const label = document.createElement('span');
-      const reason = e.reason === 'self_view' || e.reason === 'sender_ip'
-        ? 'Self-open' : 'Bot / Proxy';
-      label.style.cssText = reason === 'Self-open'
+      const isSelf = e.reason === 'self_view' || e.reason === 'sender_ip';
+      label.style.cssText = isSelf
         ? 'color:#fb923c;font-size:10px;margin-left:6px;'
         : 'color:#ef4444;font-size:10px;margin-left:6px;';
-      label.textContent = reason;
+      label.textContent = isSelf ? t('selfOpen') : t('botProxy');
       timeDiv.appendChild(label);
     }
 

@@ -3,9 +3,11 @@
 
 (function () {
   const LOG = '[MailTracker]';
+  const { t, uiLocale } = MailTrackerI18n;
   let serverUrl = '';
   let dashboardPassword = '';
   let trackingEnabled = true;
+  let learnedSends = []; // Send buttons learned from this user's Gmail, see send-signatures.js
 
   // Add CSS for read indicators
   const style = document.createElement('style');
@@ -76,11 +78,15 @@
   });
 
   // The password stays in this browser: storage.sync would copy it to every Chrome signed in to the account.
-  chrome.storage.local.get(['dashboardPassword'], (r) => { dashboardPassword = r.dashboardPassword || ''; });
+  chrome.storage.local.get(['dashboardPassword', 'sendSignatures'], (r) => {
+    dashboardPassword = r.dashboardPassword || '';
+    learnedSends = r.sendSignatures || [];
+  });
 
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.serverUrl) serverUrl = changes.serverUrl.newValue || '';
     if (changes.dashboardPassword) dashboardPassword = changes.dashboardPassword.newValue || '';
+    if (changes.sendSignatures) learnedSends = changes.sendSignatures.newValue || [];
     if (changes.autoTrack) trackingEnabled = changes.autoTrack.newValue !== false;
   });
 
@@ -147,18 +153,31 @@
 
   // A mail that leaves untracked looks exactly like a mail nobody has opened, so say so.
   function showTrackingFailure(reason) {
-    showBanner('Mail Tracker: this message was sent WITHOUT tracking (' + reason + ')');
+    showBanner(t('bannerNotTracked', [reason]), { kind: 'error' });
   }
 
-  function showBanner(text) {
+  // One banner at a time. `actions` are buttons; ttl 0 keeps it until an action is used.
+  function showBanner(text, { kind = 'info', actions = [], ttl = 10000 } = {}) {
     console.warn(LOG, text);
+    const old = document.getElementById('mail-tracker-banner');
+    if (old) old.remove();
     const el = document.createElement('div');
-    el.textContent = text;
+    el.id = 'mail-tracker-banner';
     el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;'
-      + 'background:#b91c1c;color:#fff;padding:10px 16px;border-radius:8px;font:13px sans-serif;'
-      + 'box-shadow:0 4px 16px rgba(0,0,0,.4)';
+      + `background:${kind === 'error' ? '#b91c1c' : '#1e40af'};color:#fff;padding:10px 16px;border-radius:8px;`
+      + 'font:13px sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center;max-width:80vw';
+    const msg = document.createElement('span');
+    msg.textContent = text;
+    el.appendChild(msg);
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.textContent = a.label;
+      b.style.cssText = 'background:#fff;color:#111;border:0;border-radius:6px;padding:4px 10px;font:inherit;cursor:pointer;white-space:nowrap';
+      b.addEventListener('click', () => { el.remove(); a.onClick(); });
+      el.appendChild(b);
+    }
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 10000);
+    if (ttl) setTimeout(() => el.remove(), ttl);
   }
 
   // One pixel per message. Gmail sends one body to every recipient, so a pixel per
@@ -189,9 +208,9 @@
         signal: AbortSignal.timeout(NEW_PIXEL_TIMEOUT_MS),
       });
     } catch (e) {
-      return showTrackingFailure(e.name === 'TimeoutError' ? 'server too slow' : 'server unreachable');
+      return showTrackingFailure(e.name === 'TimeoutError' ? t('reasonServerSlow') : t('reasonServerUnreachable'));
     }
-    if (!res.ok) return showTrackingFailure('server answered ' + res.status);
+    if (!res.ok) return showTrackingFailure(t('reasonServerAnswered', [String(res.status)]));
     const data = await res.json();
 
     const img = document.createElement('img');
@@ -284,24 +303,50 @@
     await injectTracker(bodyEl, recipients);
   }
 
-  // The Send label depends on the interface language (<html lang>); see send-words.js.
-  const labelSelector = () => MailTrackerSend.sendSelector(document.documentElement.lang || navigator.language);
-  const SEND_CLASS_SELECTOR = MailTrackerSend.fallbackSelector;
+  // English "Send" is built in; every other language is learned from the user's own
+  // Gmail (see send-signatures.js and startLearning below).
+  const labelSelector = () => MailTrackerSend.sendSelector(learnedSends);
+  const sendButtonIn = container => container.querySelector(labelSelector());
+  const sendButtonFrom = el => el.closest(labelSelector());
 
-  function sendButtonIn(container) {
-    return container.querySelector(labelSelector()) || container.querySelector(SEND_CLASS_SELECTOR);
+  // Learn once: swallow the next click on a button inside a compose window and store
+  // what Gmail calls it. Mouse down and up are swallowed too, since Gmail's buttons
+  // act on them, so nothing is sent.
+  let learning = false;
+  function startLearning() {
+    if (learning) return;
+    learning = true;
+    showBanner(t('bannerLearnPrompt'), { ttl: 0 });
+    const events = ['mousedown', 'mouseup', 'click'];
+    const onEvent = (e) => {
+      const btn = e.target.closest && e.target.closest('div[role="button"]');
+      const compose = btn && findComposeForm(btn);
+      if (!compose || !compose.querySelector('div[contenteditable="true"]')) return; // not in a compose window
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.type !== 'click') return;
+      const sig = MailTrackerSend.signatureFrom({
+        label: btn.getAttribute('aria-label'),
+        tooltip: btn.getAttribute('data-tooltip'),
+      });
+      if (!sig) return;
+      events.forEach(ev => window.removeEventListener(ev, onEvent, true));
+      learning = false;
+      learnedSends = MailTrackerSend.addSignature(learnedSends, sig);
+      chrome.storage.local.set({ sendSignatures: learnedSends });
+      showBanner(t('bannerLearned', [sig.label || sig.tooltip]), {
+        actions: [{
+          label: t('actionUndo'),
+          onClick: () => {
+            learnedSends = MailTrackerSend.removeSignature(learnedSends, sig);
+            chrome.storage.local.set({ sendSignatures: learnedSends });
+          },
+        }],
+      });
+    };
+    events.forEach(ev => window.addEventListener(ev, onEvent, true));
   }
 
-  // The class fallback only applies when no labelled Send button exists in that
-  // compose, so a stray .aoO element can never override a label match.
-  function sendButtonFrom(el) {
-    const byLabel = el.closest(labelSelector());
-    if (byLabel) return byLabel;
-    const byClass = el.closest(SEND_CLASS_SELECTOR);
-    if (!byClass) return null;
-    const scope = byClass.closest('[role="dialog"]') || document;
-    return scope.querySelector(labelSelector()) ? null : byClass;
-  }
   let isSending = false; // Flag to prevent infinite loop
 
   // Track the compose being sent (not every open compose or draft), then send it.
@@ -335,7 +380,11 @@
       console.warn(LOG, 'Send button not recognised. lang =', document.documentElement.lang, 'buttons:',
         Array.from(dialog.querySelectorAll('div[role="button"]')).slice(0, 15)
           .map(b => ({ label: b.getAttribute('aria-label'), tip: b.getAttribute('data-tooltip'), cls: b.className })));
-      showBanner('Mail Tracker: Send button not recognised (Gmail language?). Messages will go out WITHOUT tracking.');
+      showBanner(t('bannerSendNotRecognised'), {
+        kind: 'error',
+        ttl: 0,
+        actions: [{ label: t('actionLearnSend'), onClick: startLearning }],
+      });
     }
   }
 
@@ -361,7 +410,7 @@
       const button = dialog && sendButtonIn(dialog);
       if (!button) {
         // Typing in an inline reply: Gmail will send it, and we cannot track it from here.
-        if (e.target.closest('[contenteditable="true"]')) showTrackingFailure("Ctrl+Enter in an inline reply is not tracked, use the Send button");
+        if (e.target.closest('[contenteditable="true"]')) showTrackingFailure(t('reasonInlineCtrlEnter'));
         return;
       }
 
@@ -423,18 +472,18 @@
         statusEl.replaceChildren(makeTicks(true));
         statusEl.style.color = '#1a73e8'; // Blue for read
         
-        const lastOpen = tracker.lastOpen ? new Date(tracker.lastOpen).toLocaleString('en-US', {
+        const lastOpen = tracker.lastOpen ? new Date(tracker.lastOpen).toLocaleString(uiLocale(), {
           hour: 'numeric',
           minute: '2-digit',
-          hour12: true,
           month: 'short',
           day: 'numeric'
-        }) : 'never';
+        }) : t('indicatorNever');
         
-        statusEl.title = `Opened ${tracker.opens} time${tracker.opens > 1 ? 's' : ''}\nLast opened: ${lastOpen}`;
+        const opened = tracker.opens === 1 ? t('indicatorOpenedOne') : t('indicatorOpenedMany', [String(tracker.opens)]);
+        statusEl.title = `${opened}\n${t('indicatorLastOpened', [lastOpen])}`;
       } else {
         statusEl.replaceChildren(makeTicks(false));
-        statusEl.title = 'Sent but not opened yet';
+        statusEl.title = t('indicatorUnopened');
       }
       
       // Insert after email span

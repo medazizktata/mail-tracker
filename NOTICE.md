@@ -9,7 +9,7 @@ This copy is a **modified version**.
 |---|---|
 | Original | [samrathreddy/mail-tracker](https://github.com/samrathreddy/mail-tracker) |
 | Hardened fork this work builds on | [xinshoutw/mail-tracker](https://github.com/xinshoutw/mail-tracker) |
-| This copy | [medazizktata/mail-tracker](https://github.com/medazizktata/mail-tracker), branch `hardened` |
+| This copy | [medazizktata/mail-tracker](https://github.com/medazizktata/mail-tracker), branch `main` |
 
 The history of all three is kept in this repository's git log; every commit carries its author and date.
 

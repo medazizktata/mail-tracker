@@ -434,14 +434,16 @@
     const trackers = await getTrackingData();
     console.log(LOG, 'Got', trackers.length, 'trackers for processing');
     
-    // Sent rows: this only runs in the Sent view, and a row counts if it has a recipient span.
-    // Do not test for Gmail's "To:" prefix; Gmail localises it.
+    // Sent rows put a localised prefix ("To:", "À :", ...) in front of the recipients, while an
+    // inbox row starts straight with the sender's name. Gmail's rows can still be the inbox's for a
+    // moment after the hash changes to #sent, so test for "some prefix" instead of the English word.
     const sentRows = document.querySelectorAll('tr[role="row"]');
     console.log(LOG, 'Found', sentRows.length, 'email rows');
     
     sentRows.forEach((row, index) => {
       const toField = row.querySelector('.yW');
-      if (!toField) return;
+      const firstRecipient = toField && toField.querySelector('span[email]');
+      if (!firstRecipient || toField.textContent.indexOf(firstRecipient.textContent) < 1) return;
       
       const emailSpan = toField.querySelector('span[email]');
       if (!emailSpan) return; // Remove the duplicate check since we cleared all indicators above

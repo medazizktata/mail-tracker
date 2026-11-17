@@ -47,8 +47,9 @@ mail-tracker/
 |-------|--------|------|-------------|
 | `/` | GET | Yes | Web dashboard — lists all trackers |
 | `/t/:id` | GET | No | Serve tracking pixel & record open |
+| `/c/:id/:n` | GET | No | Tracked link: records a click, 302 to the n-th stored link (never a request parameter) |
 | `/s/:id` | GET | Yes | Tracker detail page (HTML) or stats (JSON with `?format=json`) |
-| `/new` | POST | Yes | Create new pixel from `{ to, subject, bodyPreview, messageId }` |
+| `/new` | POST | Yes | Create new pixel from `{ to, subject, bodyPreview, messageId, links }`; returns a tracked URL per link |
 | `/list` | GET | Yes | List all pixels as JSON (used by the dashboard and popup) |
 | `/feed` | GET | Yes | Recent genuine opens from one key (the extension's background poll) |
 | `/self` | POST | Yes | Reclassify recent opens as self-views, `{ ids: [...] }`, max 50 |
@@ -89,11 +90,14 @@ Each pixel in KV (key = 16 hex chars from a UUID; it was 8, which is only
     { "time": "ISO-8601", "ip": "...", "country": "US", "userAgent": "..." }
   ],
   "filteredEvents": [
-    { "time": "ISO-8601", "ip": "...", "reason": "sender_ip|bot_proxy" }
-  ]
+    { "time": "ISO-8601", "ip": "...", "reason": "sender_ip|bot_proxy|apple_mpp|too_fast" }
+  ],
+  "links": ["https://..."],
+  "clicks": 0,
+  "clickEvents": [{ "time": "ISO-8601", "ip": "...", "link": 0 }]
 }
 ```
-- `events` capped at 100, `filteredEvents` capped at 20
+- `events` capped at 100, `filteredEvents` capped at 20, `clickEvents` capped at 100, `links` at 20
 - Every tracker write goes through `putTracker()`, which attaches a KV metadata
   summary. `/` and `/list` render from `list()` metadata alone — a `get()` per
   key blew the Workers subrequest limit at ~50 trackers. Omitting metadata on a
@@ -113,6 +117,10 @@ Three filters run before recording an open:
 2. **Bot detection** — regex patterns for true scanners only (SafeLinks, SMTP
    STS, Slurp, Office prefetch)
 3. **Dedup window** — ignores same-IP opens within 5 seconds
+
+Opens from Apple's 17.0.0.0/8 are filed as `apple_mpp` (Mail Privacy Protection prefetches at
+delivery) unless `COUNT_APPLE_PREFETCH` is set. Clicks go through the same sender-IP and bot filters,
+plus a 10 s "too fast" rule, and `/c/` always redirects even if recording fails.
 
 **Do not add mail provider image proxies to `BOT_PATTERNS`.** Gmail and Yahoo
 Mail fetch every image through their own proxy, so that request *is* the

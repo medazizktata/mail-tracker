@@ -1,4 +1,4 @@
-import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch } from './shared.js';
+import { CORS_HEADERS, DEDUP_WINDOW_MS, MAX_HITS_PER_TRACKER, json, isBot, checkAuth, requireAuth, servePixel, html, putTracker, trackerMeta, encodeConnectionCode, isApplePrefetch, validLinks } from './shared.js';
 import { sendWebhookNotifications } from './notifications.js';
 import { renderDetail } from './views/detail.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -36,6 +36,43 @@ const MAX_PENDING_PER_RUN = 10;
 const MAX_TRACKERS = 1000;
 const MAX_LEGACY_READS = 20;
 const MAX_SELF_VIEW_IDS = 50;
+
+// Scanners follow every link the moment a mail arrives, which no reader does.
+const TOO_FAST_MS = 10_000;
+
+/**
+ * Record a click, or file it as not-a-reader. Never throws: the caller redirects regardless, because
+ * the person clicking must reach their destination whatever happens to our storage.
+ */
+async function recordClick(env, id, existing, link, request) {
+  try {
+    if ((existing.opens || 0) + (existing.skipped || 0) + (existing.clicks || 0) >= MAX_HITS_PER_TRACKER) return;
+    const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+    const nowMs = Date.now();
+    const event = {
+      time: new Date(nowMs).toISOString(), ip, link,
+      country: request.headers.get('cf-ipcountry') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+    };
+    let reason = null;
+    if (existing.senderIp && existing.senderIp === ip) reason = 'sender_ip';
+    else if (isBot(event.userAgent)) reason = 'bot_proxy';
+    else if (nowMs - new Date(existing.createdAt).getTime() < TOO_FAST_MS) reason = 'too_fast';
+
+    if (reason) {
+      if (isRepeatHit(existing.filteredEvents || [], ip, nowMs)) return;
+      existing.skipped = (existing.skipped || 0) + 1;
+      existing.filteredEvents = [...(existing.filteredEvents || []), { ...event, reason }].slice(-20);
+    } else {
+      if (isRepeatHit(existing.clickEvents || [], ip, nowMs)) return;
+      existing.clicks = (existing.clicks || 0) + 1;
+      existing.clickEvents = [...(existing.clickEvents || []), event].slice(-100);
+    }
+    await putTracker(env, id, existing);
+  } catch (e) {
+    console.log(`[click] id=${id} not recorded: ${e && e.message}`);
+  }
+}
 
 /**
  * A repeat hit from the same IP inside the dedup window. /t/:id is
@@ -252,6 +289,27 @@ export default {
       return servePixel();
     }
 
+    // GET /c/:id/:n — a tracked link. The destination is the n-th link stored on the tracker, never
+    // anything from the request, so this cannot be used as an open redirect.
+    const click = url.pathname.match(/^\/c\/([0-9a-f]{8,32})\/(0|[1-9]\d?)$/);
+    if (click && (request.method === 'GET' || request.method === 'HEAD')) {
+      const id = click[1];
+      const n = Number(click[2]);
+      const existing = await env.TRACKER.get(id, 'json');
+      const target = existing && Array.isArray(existing.links) ? existing.links[n] : undefined;
+      if (!target) return new Response('Not found', { status: 404 });
+      if (request.method === 'GET') await recordClick(env, id, existing, n, request); // HEAD is a scanner's
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: target,
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+          'X-Robots-Tag': 'noindex',
+        },
+      });
+    }
+
     // GET /s/:id — stats for a tracking pixel
     if (url.pathname.startsWith('/s/')) {
       if (!checkAuth(request, env)) return requireAuth(env);
@@ -284,13 +342,17 @@ export default {
       const id = crypto.randomUUID().replace(/-/g, '').slice(0, ID_LENGTH);
       const senderIp = request.headers.get('cf-connecting-ip') || 'unknown';
 
-      let recipient = null, subject = '', bodyPreview = '', messageId = '';
+      let recipient = null, subject = '', bodyPreview = '', messageId = '', links = [];
       try {
         const body = await request.json();
         recipient = body.to || null;
         subject = body.subject || '';
         bodyPreview = body.bodyPreview || '';
         messageId = body.messageId || '';
+        if (body.links !== undefined) {
+          if (!Array.isArray(body.links)) return json({ error: 'links must be an array' }, 400);
+          links = validLinks(body.links);
+        }
       } catch (e) {
         return json({ error: 'Invalid JSON body' }, 400);
       }
@@ -306,7 +368,7 @@ export default {
 
       await putTracker(env, id, {
         opens: 0, events: [], filteredEvents: [], skipped: 0,
-        senderIp, recipient, subject, bodyPreview, messageId,
+        senderIp, recipient, subject, bodyPreview, messageId, links,
         createdAt: new Date().toISOString(),
       });
 
@@ -315,6 +377,7 @@ export default {
         id, pixel: `${base}/t/${id}`,
         html: `<img src="${base}/t/${id}" width="1" height="1" style="display:none" />`,
         stats: `${base}/s/${id}`, recipient, subject, bodyPreview,
+        links: links.map((u, index) => ({ index, url: u, tracked: `${base}/c/${id}/${index}` })),
       });
     }
 
@@ -332,7 +395,7 @@ export default {
 
       const trackers = await listTrackers(env);
       return json(trackers.map(t => ({
-        id: t.id, opens: t.opens || 0, skipped: t.skipped || 0,
+        id: t.id, opens: t.opens || 0, skipped: t.skipped || 0, clicks: t.clicks || 0,
         recipient: t.recipient || null, subject: t.subject || '',
         bodyPreview: t.bodyPreview || '', messageId: t.messageId || '',
         createdAt: t.createdAt || null, lastOpen: t.lastOpen || null,

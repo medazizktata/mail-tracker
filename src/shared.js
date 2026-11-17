@@ -33,6 +33,25 @@ export const DEDUP_WINDOW_MS = 5000;
 // without a bound anyone holding a pixel URL can spend the free KV write budget.
 export const MAX_HITS_PER_TRACKER = 300;
 
+// Links a tracker may carry for click tracking. Only these stored links can ever be redirected to, so
+// the redirect is not an open redirect: the destination is never taken from the request.
+export const MAX_LINKS = 20;
+export const MAX_LINK_LENGTH = 2000;
+
+export function validLinks(list) {
+  const out = [];
+  for (const raw of list) {
+    if (typeof raw !== 'string' || raw.length > MAX_LINK_LENGTH) continue;
+    let u;
+    try { u = new URL(raw); } catch { continue; }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') continue;
+    if (u.username || u.password) continue;
+    if (!out.includes(u.href)) out.push(u.href); // href is normalised: the URL parser drops CR, LF and tab
+    if (out.length === MAX_LINKS) break;
+  }
+  return out;
+}
+
 export const FAVICON = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><path d='M20 35c0-3 2-5 5-5h50c3 0 5 2 5 5v30c0 3-2 5-5 5H25c-3 0-5-2-5-5V35z' fill='none' stroke='white' stroke-width='5'/><path d='M22 33l28 22 28-22' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='75' cy='28' r='12' fill='%2334d399'/><text x='75' y='33' text-anchor='middle' fill='white' font-size='16' font-weight='bold'>1</text></svg>";
 
 export const LOGO_SVG = '<svg width="22" height="22" viewBox="0 0 100 100" style="flex-shrink:0"><rect width="100" height="100" rx="20" fill="#6366f1"/><path d="M20 35c0-3 2-5 5-5h50c3 0 5 2 5 5v30c0 3-2 5-5 5H25c-3 0-5-2-5-5V35z" fill="none" stroke="white" stroke-width="5"/><path d="M22 33l28 22 28-22" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="75" cy="28" r="12" fill="#34d399"/></svg>';
@@ -105,6 +124,7 @@ export function trackerMeta(data) {
   const meta = {
     opens: data.opens || 0,
     skipped: data.skipped || 0,
+    clicks: data.clicks || 0,
     recipient: (data.recipient || '').slice(0, 100) || null,
     subject: (data.subject || '').slice(0, META_TEXT_LIMIT),
     bodyPreview: (data.bodyPreview || '').slice(0, META_TEXT_LIMIT),

@@ -88,7 +88,7 @@ describe('the dashboard lists mails with clicks and filters', () => {
     for (const f of ['all', 'opened', 'pending', 'clicked']) assert.match(html, new RegExp(`data-filter="${f}"`), f);
   });
   test('a card shows its click count', () => {
-    assert.match(html, /r\.clicks/);
+    assert.match(html, /if \(r\.clicks > 0\) \{[^}]*r\.clicks \+ \(r\.clicks === 1 \? ' click' : ' clicks'\)/);
   });
   test('the clicks total is in the summary', () => {
     assert.match(html, /id="totalClicks"/);

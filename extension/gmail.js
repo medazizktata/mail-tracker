@@ -147,9 +147,13 @@
 
   // A mail that leaves untracked looks exactly like a mail nobody has opened, so say so.
   function showTrackingFailure(reason) {
-    console.warn(LOG, 'Not tracked:', reason);
+    showBanner('Mail Tracker: this message was sent WITHOUT tracking (' + reason + ')');
+  }
+
+  function showBanner(text) {
+    console.warn(LOG, text);
     const el = document.createElement('div');
-    el.textContent = 'Mail Tracker: this message was sent WITHOUT tracking (' + reason + ')';
+    el.textContent = text;
     el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;'
       + 'background:#b91c1c;color:#fff;padding:10px 16px;border-radius:8px;font:13px sans-serif;'
       + 'box-shadow:0 4px 16px rgba(0,0,0,.4)';
@@ -280,7 +284,11 @@
     await injectTracker(bodyEl, recipients);
   }
 
-  const SEND_SELECTOR = 'div[role="button"][aria-label*="Send"], div[role="button"][data-tooltip*="Send"]';
+  // Gmail localises these labels. Add a word here for another interface language.
+  const SEND_WORDS = ['Send', 'Envoyer'];
+  const SEND_SELECTOR = SEND_WORDS
+    .flatMap(w => [`div[role="button"][aria-label*="${w}"]`, `div[role="button"][data-tooltip*="${w}"]`])
+    .join(', ');
   let isSending = false; // Flag to prevent infinite loop
 
   // Track the compose being sent (not every open compose or draft), then send it.
@@ -300,6 +308,19 @@
       sendButton.click();
       setTimeout(() => { isSending = false; }, 1000);
     }, 100);
+  }
+
+  // A compose window whose Send button we cannot match (another interface language, or
+  // Gmail changed its markup) would otherwise send every mail untracked and say nothing.
+  let warnedSend = false;
+  function checkSendRecognised() {
+    if (warnedSend || !trackingEnabled || !serverUrl) return;
+    const body = document.querySelector('[role="dialog"] div[contenteditable="true"]');
+    const dialog = body && body.closest('[role="dialog"]');
+    if (dialog && !dialog.querySelector(SEND_SELECTOR)) {
+      warnedSend = true;
+      showBanner('Mail Tracker: Send button not recognised (Gmail language?). Messages will go out WITHOUT tracking.');
+    }
   }
 
   function setupSendInterception() {
@@ -506,6 +527,7 @@
   if (window.location.hostname === 'mail.google.com') {
     console.log(LOG, 'Initializing...');
     setupSendInterception();
+    setInterval(checkSendRecognised, 3000);
 
     // Detect view changes and fetch data only when needed
     let lastUrl = location.href;

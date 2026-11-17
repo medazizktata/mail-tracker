@@ -177,6 +177,12 @@ describe('hasPixel: does a message body already carry our pixel', () => {
     assert.equal(hasPixel([`${SERVER}/t/${ID}zz`], SERVER), false);
     assert.equal(hasPixel([`${SERVER}/t/${ID}?cb=1`], SERVER), true);
   });
+  test('an id shorter than 8 or longer than 32 hex characters is not one of ours', () => {
+    assert.equal(hasPixel([`${SERVER}/t/abc123`], SERVER), false);
+    assert.equal(hasPixel([`${SERVER}/t/${'a'.repeat(40)}`], SERVER), false);
+    assert.equal(hasPixel([`${SERVER}/t/${'a'.repeat(8)}`], SERVER), true);   // the legacy 8-character ids
+    assert.equal(hasPixel([`${SERVER}/t/${'a'.repeat(32)}`], SERVER), true);
+  });
   test('found among several images', () => {
     assert.equal(hasPixel(['https://example.com/a.png', `${SERVER}/t/${ID}`], SERVER), true);
   });

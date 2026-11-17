@@ -31,6 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   serverUrl = saved || '';
   dashboardPassword = savedPass || '';
   authFailed = savedAuthFailed || false;
+  if (saved) { // the worker's own address: the page asks for the password itself, so it is never put in a URL
+    document.getElementById('dashboard-link').href = saved;
+    document.getElementById('dashboard-link').hidden = false;
+  }
 
   if (!serverUrl || !dashboardPassword || authFailed) {
     showSetup(true);

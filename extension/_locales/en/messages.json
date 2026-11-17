@@ -302,5 +302,8 @@
   },
   "trackLinksHint": {
     "message": "Rewrites the links in messages you send so clicks are counted even when images are blocked. Recipients will see your worker's address when they hover a link. Off by default."
+  },
+  "openDashboard": {
+    "message": "Dashboard"
   }
 }

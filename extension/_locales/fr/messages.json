@@ -302,5 +302,8 @@
   },
   "trackLinksHint": {
     "message": "Réécrit les liens des messages envoyés pour compter les clics même quand les images sont bloquées. Les destinataires verront l'adresse de votre worker en survolant un lien. Désactivé par défaut."
+  },
+  "openDashboard": {
+    "message": "Tableau de bord"
   }
 }

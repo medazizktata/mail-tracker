@@ -46,6 +46,9 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
   .card-arrow { color: var(--text-3); transition: color 0.15s, transform 0.15s; }
   .card:hover .card-arrow { color: var(--accent); transform: translateX(2px); }
   .badge-sm { padding: 2px 8px; border-radius: 999px; font-size: 0.65rem; font-weight: 600; }
+  .chips { display: flex; gap: 8px; margin: -8px 0 16px; flex-wrap: wrap; }
+  .chip { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; }
+  .chip.active { border-color: var(--accent); color: var(--text); }
   .badge-opened { background: var(--green-dim); color: var(--green); } .badge-pending { background: var(--amber-dim); color: var(--amber); }
   .empty-state { text-align: center; padding: 64px 20px; color: var(--text-3); }
   .empty-state p { font-size: 0.95rem; margin-bottom: 8px; } .empty-state .sub { font-size: 0.8rem; }
@@ -76,8 +79,10 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
       <div class="summary-item"><span class="summary-val blue" id="totalTrackers"></span><span class="summary-label">trackers</span></div>
       <div class="summary-item"><span class="summary-val green" id="totalOpens"></span><span class="summary-label">total opens</span></div>
       <div class="summary-item"><span class="summary-val amber" id="activeCount"></span><span class="summary-label">opened</span></div>
+      <div class="summary-item"><span class="summary-val blue" id="totalClicks"></span><span class="summary-label">clicks</span></div>
     </div>
     <input type="text" class="search-bar" id="searchInput" placeholder="Search by email, subject, or preview...">
+    <div class="chips" id="filterChips"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="opened">Opened</button><button class="chip" data-filter="pending">Not opened</button><button class="chip" data-filter="clicked">Clicked</button></div>
     <div class="card-list" id="cardList"></div>
     <div class="empty-state" id="emptyState" style="display:none"><p>No tracked emails yet</p><span class="sub">Click "+ New Tracker" to create your first pixel</span></div>
     <div class="empty-state" id="noResults" style="display:none"><p>No results found</p></div>
@@ -107,6 +112,7 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
     document.getElementById('totalTrackers').textContent = DATA.length;
     document.getElementById('totalOpens').textContent = TOTAL_OPENS;
     document.getElementById('activeCount').textContent = ACTIVE_COUNT;
+    document.getElementById('totalClicks').textContent = DATA.reduce(function(s, r) { return s + (r.clicks || 0); }, 0);
 
     function formatTime(iso) { return new Date(iso).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' }); }
     function relativeTime(iso) { var diff = Date.now() - new Date(iso).getTime(); var mins = Math.floor(diff / 60000); if (mins < 1) return 'just now'; if (mins < 60) return mins + 'm ago'; var hrs = Math.floor(mins / 60); if (hrs < 24) return hrs + 'h ago'; var days = Math.floor(hrs / 24); if (days < 30) return days + 'd ago'; return formatTime(iso); }
@@ -129,6 +135,7 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
         if (r.email && r.subject) { var es = document.createElement('span'); es.textContent = r.email; meta.appendChild(es); }
         var cs = document.createElement('span'); cs.textContent = r.createdAt ? relativeTime(r.createdAt) : 'unknown'; meta.appendChild(cs);
         if (r.lastOpen !== 'never') { var lo = document.createElement('span'); lo.textContent = 'Last open: ' + relativeTime(r.lastOpen); meta.appendChild(lo); }
+        if (r.clicks > 0) { var ck = document.createElement('span'); ck.textContent = r.clicks + (r.clicks === 1 ? ' click' : ' clicks'); meta.appendChild(ck); }
         var bs = document.createElement('span'); bs.className = 'badge-sm ' + (r.opens > 0 ? 'badge-opened' : 'badge-pending'); bs.textContent = r.opens > 0 ? 'opened' : 'pending'; meta.appendChild(bs);
         left.appendChild(meta);
         if (r.bodyPreview) { var pv = document.createElement('div'); pv.className = 'card-preview'; pv.textContent = r.bodyPreview; left.appendChild(pv); }
@@ -143,10 +150,17 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
     }
     renderCards(DATA);
 
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-      var q = e.target.value.toLowerCase(); if (!q) { renderCards(DATA); return; }
-      renderCards(DATA.filter(function(r) { return (r.email || '').toLowerCase().indexOf(q) !== -1 || (r.subject || '').toLowerCase().indexOf(q) !== -1 || (r.bodyPreview || '').toLowerCase().indexOf(q) !== -1; }));
+    var activeFilter = 'all';
+    var FILTERS = { all: function() { return true; }, opened: function(r) { return r.opens > 0; }, pending: function(r) { return r.opens === 0; }, clicked: function(r) { return r.clicks > 0; } };
+    function applyView() {
+      var q = document.getElementById('searchInput').value.toLowerCase();
+      renderCards(DATA.filter(function(r) { return FILTERS[activeFilter](r) && (!q || (r.email || '').toLowerCase().indexOf(q) !== -1 || (r.subject || '').toLowerCase().indexOf(q) !== -1 || (r.bodyPreview || '').toLowerCase().indexOf(q) !== -1); }));
+    }
+    document.getElementById('filterChips').addEventListener('click', function(e) {
+      var f = e.target.getAttribute && e.target.getAttribute('data-filter'); if (!f) return;
+      activeFilter = f; document.querySelectorAll('.chip').forEach(function(c) { c.classList.toggle('active', c === e.target); }); applyView();
     });
+    document.getElementById('searchInput').addEventListener('input', applyView);
 
     var overlay = document.getElementById('modalOverlay');
     var modalForm = document.getElementById('modalForm');

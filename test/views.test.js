@@ -76,3 +76,21 @@ describe('the detail page shows clicks and tracked links', () => {
     assert.match(html, /Too fast/);
   });
 });
+
+describe('the dashboard lists mails with clicks and filters', () => {
+  const rows = [
+    { id: 'a', email: 'a@x.co', subject: 'A', bodyPreview: '', opens: 2, clicks: 1, lastOpen: 'never', createdAt: '2026-11-01T10:00:00Z' },
+    { id: 'b', email: 'b@x.co', subject: 'B', bodyPreview: '', opens: 0, clicks: 0, lastOpen: 'never', createdAt: '2026-11-02T10:00:00Z' },
+  ];
+  const html = renderDashboard(rows, 2, 1, 'n');
+
+  test('filter chips: all, opened, not opened, clicked', () => {
+    for (const f of ['all', 'opened', 'pending', 'clicked']) assert.match(html, new RegExp(`data-filter="${f}"`), f);
+  });
+  test('a card shows its click count', () => {
+    assert.match(html, /r\.clicks/);
+  });
+  test('the clicks total is in the summary', () => {
+    assert.match(html, /id="totalClicks"/);
+  });
+});

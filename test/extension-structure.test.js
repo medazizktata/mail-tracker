@@ -73,3 +73,31 @@ describe('extension privilege and data flow', () => {
     for (const f of jsFiles) assert.doesNotMatch(code(f), /storage\.sync\.[a-z]+\([^)]*dashboardPassword/, f);
   });
 });
+
+describe('the popup list scrolls', () => {
+  const popup = read('popup.html');
+  const rule = sel => (popup.match(new RegExp(sel.replace(/[.#]/g, '\\$&') + '\\s*\\{([^}]*)\\}')) || [])[1] || '';
+
+  test('the list itself is the scroll area, with a bounded height', () => {
+    const r = rule('#pixel-container');
+    assert.match(r, /overflow-y:\s*auto/);
+    assert.match(r, /max-height:\s*\d+px/);
+  });
+  test('the body does not also scroll: one scroller, so the header stays put and the wheel has one target', () => {
+    assert.doesNotMatch(rule('body'), /overflow/);
+  });
+});
+
+describe('the popup links to the web dashboard', () => {
+  test('a link is there, hidden until a server is set, and has a translated label', () => {
+    const popup = read('popup.html');
+    assert.match(popup, /id="dashboard-link"/);
+    assert.match(popup, /id="dashboard-link"[^>]*target="_blank"[^>]*rel="noopener noreferrer"|id="dashboard-link"[^>]*rel="noopener noreferrer"[^>]*target="_blank"/);
+    for (const lang of ['en', 'fr']) assert.ok(JSON.parse(read(`_locales/${lang}/messages.json`)).openDashboard?.message, lang);
+  });
+  test('its address is the worker origin and never carries the password', () => {
+    const js = code('popup.js');
+    assert.match(js, /dashboard-link['"]\)\.href\s*=\s*saved\b/);
+    assert.doesNotMatch(js, /dashboard-link[^\n]*dashboardPassword/);
+  });
+});

@@ -223,3 +223,11 @@ describe('the stats page, end to end', () => {
     assert.match(html, /id="statClicks">1</);
   });
 });
+
+describe('the dashboard route', () => {
+  test('carries each tracker\'s click count to the page', async () => {
+    const { id } = await make(); await age(id); await click(id, 0);
+    const html = await (await call('/')).text();
+    assert.match(html, new RegExp(`"id":"${id}"[^}]*"clicks":1`));
+  });
+});

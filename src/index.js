@@ -429,7 +429,7 @@ export default {
       const results = (await listTrackers(env)).map(t => ({
         id: t.id, email: t.recipient || t.id,
         subject: t.subject || '', bodyPreview: t.bodyPreview || '',
-        opens: t.opens || 0,
+        opens: t.opens || 0, clicks: t.clicks || 0,
         lastOpen: t.lastOpen || 'never',
         createdAt: t.createdAt || null,
       }));

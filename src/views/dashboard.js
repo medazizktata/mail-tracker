@@ -88,10 +88,13 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
       <div id="modalForm">
         <label>Recipient Email (optional)</label><input type="email" id="inputTo" placeholder="recipient@example.com">
         <label>Subject (optional)</label><input type="text" id="inputSubject" placeholder="Email subject line">
+        <label>Link to track (optional): for plain-text emails and clients that block images</label><input type="url" id="inputLink" placeholder="https://example.com/page">
+        <div id="formError" style="color:#f87171;font-size:0.8rem;margin-top:8px"></div>
         <div class="modal-actions"><button class="btn-cancel" id="cancelBtn">Cancel</button><button class="btn-create" id="createBtn">Create Tracker</button></div>
       </div>
       <div id="modalResult" style="display:none">
         <div><div class="result-label">Pixel HTML (copy into your email)</div><div class="result-box" id="resultHtml"></div></div>
+        <div id="resultLinkWrap" style="display:none;margin-top:12px"><div class="result-label">Tracked link (paste it into your email instead of the original)</div><div class="result-box" id="resultLink"></div><button class="btn-create" id="copyLinkBtn" style="margin-top:8px">Copy Tracked Link</button></div>
         <div style="margin-top:12px"><div class="result-label">Stats URL</div><div class="result-box" id="resultStats"></div></div>
         <div class="modal-actions" style="margin-top:20px"><button class="btn-cancel" id="closeResult">Close</button><button class="btn-create" id="copyHtmlBtn">Copy Pixel HTML</button></div>
       </div>
@@ -148,19 +151,21 @@ export function renderDashboard(results, totalOpens, activeCount, nonce) {
     var overlay = document.getElementById('modalOverlay');
     var modalForm = document.getElementById('modalForm');
     var modalResult = document.getElementById('modalResult');
-    document.getElementById('newBtn').addEventListener('click', function() { modalForm.style.display = ''; modalResult.style.display = 'none'; document.getElementById('inputTo').value = ''; document.getElementById('inputSubject').value = ''; overlay.classList.add('open'); });
+    document.getElementById('newBtn').addEventListener('click', function() { modalForm.style.display = ''; modalResult.style.display = 'none'; document.getElementById('inputTo').value = ''; document.getElementById('inputSubject').value = ''; document.getElementById('inputLink').value = ''; document.getElementById('formError').textContent = ''; document.getElementById('resultLinkWrap').style.display = 'none'; overlay.classList.add('open'); });
     document.getElementById('cancelBtn').addEventListener('click', function() { overlay.classList.remove('open'); });
     document.getElementById('closeResult').addEventListener('click', function() { overlay.classList.remove('open'); location.reload(); });
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.classList.remove('open'); });
 
-    var createdPixelHtml = '';
+    var createdPixelHtml = ''; var createdLink = '';
     document.getElementById('createBtn').addEventListener('click', function() {
       var body = {}; var to = document.getElementById('inputTo').value; var subject = document.getElementById('inputSubject').value;
       if (to) body.to = to; if (subject) body.subject = subject;
+      var link = document.getElementById('inputLink').value.trim(); if (link) body.links = [link];
       fetch('/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function(r) { return r.json(); })
-      .then(function(data) { createdPixelHtml = data.html; document.getElementById('resultHtml').textContent = data.html; document.getElementById('resultStats').textContent = data.stats; modalForm.style.display = 'none'; modalResult.style.display = ''; });
+      .then(function(data) { if (data.error) { document.getElementById('formError').textContent = data.error; return; } createdPixelHtml = data.html; var tracked = data.links && data.links[0] ? data.links[0].tracked : ''; createdLink = tracked; document.getElementById('resultLink').textContent = tracked; document.getElementById('resultLinkWrap').style.display = tracked ? '' : 'none'; if (link && !tracked) { document.getElementById('formError').textContent = 'That link was not accepted (only http and https links).'; return; } document.getElementById('resultHtml').textContent = data.html; document.getElementById('resultStats').textContent = data.stats; modalForm.style.display = 'none'; modalResult.style.display = ''; });
     });
+    document.getElementById('copyLinkBtn').addEventListener('click', function() { navigator.clipboard.writeText(createdLink).then(function() { var b = document.getElementById('copyLinkBtn'); b.textContent = 'Copied!'; setTimeout(function() { b.textContent = 'Copy Tracked Link'; }, 1500); }); });
     document.getElementById('copyHtmlBtn').addEventListener('click', function() { navigator.clipboard.writeText(createdPixelHtml).then(function() { var btn = document.getElementById('copyHtmlBtn'); btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy Pixel HTML'; }, 1500); }); });
   </script>
 </body></html>`;

@@ -214,3 +214,12 @@ describe('who can read the clicks', () => {
     assert.equal(list.find(t => t.id === id).clicks, 1);
   });
 });
+
+describe('the stats page, end to end', () => {
+  test('shows the tracked address with this worker\'s own origin, and the clicks', async () => {
+    const { id } = await make(); await age(id); await click(id, 1);
+    const html = await (await call(`/s/${id}`)).text();
+    assert.ok(html.includes(`https://tracker.test/c/${id}/1`));
+    assert.match(html, /id="statClicks">1</);
+  });
+});

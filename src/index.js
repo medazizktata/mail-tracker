@@ -329,7 +329,7 @@ export default {
       }
 
       const nonce = crypto.randomUUID();
-      return html(renderDetail(id, data, nonce), nonce);
+      return html(renderDetail(id, data, nonce, url.origin), nonce);
     }
 
     // POST /new — create a new tracking pixel

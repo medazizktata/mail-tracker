@@ -1,12 +1,23 @@
 import { esc, jsonForScript, FAVICON } from '../shared.js';
 
-export function renderDetail(id, data, nonce) {
+export function renderDetail(id, data, nonce, origin = '') {
   const events = data.events || [];
   const filteredEvents = data.filteredEvents || [];
   const recipient = data.recipient || id;
   const firstOpen = events.length > 0 ? events[0].time : null;
   const lastOpenTime = events.length > 0 ? events[events.length - 1].time : null;
   const uniqueIps = new Set(events.map(e => e.ip)).size;
+
+  // Tracked links, each with the clicks recorded for it. Everything here is user-supplied, so it is escaped.
+  const links = Array.isArray(data.links) ? data.links : [];
+  const clickEvents = Array.isArray(data.clickEvents) ? data.clickEvents : [];
+  const linksPanel = links.length ? `
+    <div class="panel" style="margin-bottom:24px"><div class="panel-header"><span class="panel-title">Tracked links</span><span class="panel-hint">paste the tracked address into the email</span></div><div class="panel-body">${
+      links.map((u, i) => {
+        const n = clickEvents.filter(e => e.link === i).length;
+        return `<div style="margin-bottom:12px"><div style="word-break:break-all">${esc(u)}</div><div style="color:#a1a1aa;font-size:0.8rem;word-break:break-all">${esc(origin)}/c/${esc(id)}/${i}</div><div data-link="${i}" style="color:#34d399;font-size:0.8rem">${n} ${n === 1 ? 'click' : 'clicks'}</div></div>`;
+      }).join('')
+    }</div></div>` : '';
 
   return `<!DOCTYPE html>
 <html><head>
@@ -139,7 +150,9 @@ export function renderDetail(id, data, nonce) {
       <div class="stat-card"><div class="stat-label">Filtered</div><div class="stat-value amber" id="statFiltered"></div><div class="stat-sub">bots &amp; self-opens</div></div>
       <div class="stat-card"><div class="stat-label">First Open</div><div class="stat-value blue" style="font-size:1rem" id="statFirst"></div><div class="stat-sub" id="statFirstSub"></div></div>
       <div class="stat-card"><div class="stat-label">Last Open</div><div class="stat-value blue" style="font-size:1rem" id="statLast"></div><div class="stat-sub" id="statLastSub"></div></div>
+      <div class="stat-card"><div class="stat-label">Clicks</div><div class="stat-value green" id="statClicks">${esc(String(data.clicks || 0))}</div><div class="stat-sub">link clicks</div></div>
     </div>
+${linksPanel}
 
     <div class="two-col">
       <div class="panel"><div class="panel-header"><span class="panel-title">Open Activity</span><span class="panel-hint" id="calRange"></span></div><div class="panel-body"><div class="cal-wrap" id="calWrap"></div><div class="cal-legend" id="calLegend"></div></div></div>
@@ -318,7 +331,7 @@ export function renderDetail(id, data, nonce) {
       var timeRow = document.createElement('div'); timeRow.className = 'tl-time'; timeRow.textContent = relativeTime(e.time) + ' ';
       var timeFull = document.createElement('span'); timeFull.className = 'tl-time-full'; timeFull.textContent = '\\u2014 ' + formatTime(e.time); timeRow.appendChild(timeFull);
       var details = document.createElement('div'); details.className = 'tl-details';
-      if (isFiltered) { var rs = document.createElement('span'); rs.className = 'tl-reason'; rs.textContent = (e.reason === 'sender_ip' || e.reason === 'self_view') ? 'Self-open' : e.reason === 'apple_mpp' ? 'Apple Mail prefetch' : 'Bot / Proxy'; details.appendChild(rs); }
+      if (isFiltered) { var rs = document.createElement('span'); rs.className = 'tl-reason'; rs.textContent = (e.reason === 'sender_ip' || e.reason === 'self_view') ? 'Self-open' : e.reason === 'apple_mpp' ? 'Apple Mail prefetch' : e.reason === 'too_fast' ? 'Too fast (scanner)' : 'Bot / Proxy'; details.appendChild(rs); }
       else { var ct = document.createElement('span'); ct.className = 'tl-tag'; ct.textContent = e.country || '?'; details.appendChild(ct); }
       var ip = document.createElement('span'); ip.className = 'tl-tag'; ip.textContent = e.ip; details.appendChild(ip);
       content.appendChild(timeRow); content.appendChild(details); item.appendChild(dot); item.appendChild(content); return item;

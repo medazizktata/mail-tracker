@@ -303,11 +303,21 @@
     await injectTracker(bodyEl, recipients);
   }
 
-  // English "Send" is built in; every other language is learned from the user's own
-  // Gmail (see send-signatures.js and startLearning below).
+  // Finding Send without a table of translations: the shortcut Gmail appends to its label has a
+  // language-independent shape (see looksLikeSend). English "Send" and anything the user taught us
+  // (startLearning below) are the fallback for a label without a shortcut.
   const labelSelector = () => MailTrackerSend.sendSelector(learnedSends);
-  const sendButtonIn = container => container.querySelector(labelSelector());
-  const sendButtonFrom = el => el.closest(labelSelector());
+  const attrsOf = b => ({ label: b.getAttribute('aria-label'), tooltip: b.getAttribute('data-tooltip') });
+  const isSendButton = b => b.matches(labelSelector()) || MailTrackerSend.looksLikeSend(attrsOf(b));
+  const sendButtonIn = container => Array.from(container.querySelectorAll('div[role="button"]')).find(isSendButton) || null;
+
+  function sendButtonFrom(el) {
+    const btn = el.closest('div[role="button"]');
+    if (!btn || !isSendButton(btn)) return null;
+    // A shortcut-shaped label could appear outside a compose window; only act inside one.
+    const compose = findComposeForm(btn);
+    return compose && compose.querySelector('div[contenteditable="true"]') ? btn : null;
+  }
 
   // Learn once: swallow the next click on a button inside a compose window and store
   // what Gmail calls it. Mouse down and up are swallowed too, since Gmail's buttons

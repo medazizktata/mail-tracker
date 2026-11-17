@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Classic content script: it publishes onto globalThis instead of exporting.
 await import('../extension/send-signatures.js');
-const { signatureFrom, addSignature, removeSignature, sendSelector, MAX_SIGNATURES } = globalThis.MailTrackerSend;
+const { signatureFrom, addSignature, removeSignature, sendSelector, looksLikeSend, MAX_SIGNATURES } = globalThis.MailTrackerSend;
 
 describe('learned Send button signatures', () => {
   test('English "Send" is the only built-in, so nothing is guessed for other languages', () => {
@@ -58,5 +58,41 @@ describe('learned Send button signatures', () => {
     const list = Object.freeze([Object.freeze({ label: 'A', tooltip: '' })]);
     addSignature(list, { label: 'B', tooltip: '' });
     removeSignature(list, { label: 'A', tooltip: '' });
+  });
+});
+
+describe('recognising Send by the shape of its shortcut, in any language', () => {
+  const label = s => ({ label: s, tooltip: '' });
+
+  test('the real label seen in French Gmail on a Mac, bidi marks included', () => {
+    assert.equal(looksLikeSend(label('Envoyer \u202a(⌘Enter)\u202c')), true);
+  });
+
+  test('other Send labels: English, other languages, other modifiers', () => {
+    for (const s of ['Send (Ctrl-Enter)', 'Send (Ctrl+Enter)', 'Envoyer (Ctrl+Entrée)', 'Senden (Strg+Eingabetaste)',
+                     'Enviar (⌘Intro)', 'Send + Archive (Ctrl+Shift+Enter)']) {
+      assert.equal(looksLikeSend(label(s)), true, s);
+    }
+  });
+
+  test('the tooltip counts as well as the label', () => {
+    assert.equal(looksLikeSend({ label: '', tooltip: 'Envoyer (⌘Enter)' }), true);
+  });
+
+  test('every other compose button is rejected: single-key shortcuts and no shortcut', () => {
+    for (const s of ['Annuler (⌘Z)', 'Rétablir (⌘Y)', 'Gras (⌘B)', 'Insérer un lien (⌘K)', 'Liste à puces (⌘⇧8)',
+                     'Add Cc recipients (Ctrl+Shift+C)', 'Ajouter Cc (Ctrl+Maj+C)', 'Joindre des fichiers',
+                     "Plus d'options d'envoi", 'Aa', '', 'Envoyer']) {
+      assert.equal(looksLikeSend(label(s)), false, s);
+    }
+  });
+
+  test('a bare key with no modifier is not Send (chat boxes use plain Enter)', () => {
+    assert.equal(looksLikeSend(label('Send (Enter)')), false);
+  });
+
+  test('missing attributes are handled', () => {
+    assert.equal(looksLikeSend({}), false);
+    assert.equal(looksLikeSend({ label: null, tooltip: undefined }), false);
   });
 });

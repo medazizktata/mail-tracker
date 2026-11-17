@@ -73,6 +73,12 @@ describe('connection code: anything else is refused, because it decides where ma
     assert.equal(decode(null), null);
   });
 
+  test('a well-formed code that is simply too large is refused', () => {
+    // Valid JSON with valid fields, padded: only the size limit can reject it.
+    assert.equal(decode(forge({ u: ORIGIN, p: 'pw', pad: 'x'.repeat(5000) })), null);
+    assert.deepEqual(decode(forge({ u: ORIGIN, p: 'pw' })), { url: ORIGIN, password: 'pw' }); // the same, unpadded
+  });
+
   test('invalid UTF-8 is refused rather than silently repaired', () => {
     assert.equal(decode('mt1.' + Buffer.from([0xff, 0xfe, 0xfd]).toString('base64url')), null);
   });
